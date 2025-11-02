@@ -1,6 +1,7 @@
 /* TinyLisp with extras and SDL3 graphics by Kartik Agaram 2025 */
 /* TinyLisp with extras by Robert A. van Engelen 2025 */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -75,6 +76,7 @@ L num(L n) { return n; }
 I equ(L x,L y) { return *(unsigned long long*)&x == *(unsigned long long*)&y; }
 /* interning of atom names (Lisp symbols), returns a unique NaN-boxed ATOM */
 L atom2(I t, const char *s) {
+ assert(*s != '('); assert(*s != ')'); assert(*s != '\''); assert(*s != '`'); assert(*s != ','); assert(*s != '@');
  I i = 0; while (i < hp && strcmp(A+i,s)) i += strlen(A+i)+1;
  return i == hp && (hp += strlen(strcpy(A+i,s))+1) > sp<<3 ? err(4,nil) : box(t,i);
 }
@@ -541,6 +543,7 @@ L eval(L x,L e) {
    if (T(v) == ATOM) d = pair(v,x,d);
    /* expand macro f, then continue evaluating the expanded x */
    x = eval(cdr(f),d);
+//?    printf("macro expansion: "); print(x); printf("\n");
    continue;
   }
   if (T(f) != CLOS) return err(3,f);
@@ -586,7 +589,7 @@ char get() { char c = see; look(); return c; }
 char scan() {
  I i = 0;
  while (seeing(' ') || seeing(';')) if (get() == ';') while (!seeing('\n')) get();
- if (seeing('(') || seeing(')') || seeing('\'') || seeing('`') || seeing(',')) buf[i++] = get();
+ if (seeing('(') || seeing(')') || seeing('\'') || seeing('`') || seeing(',') || seeing('@')) buf[i++] = get();
  else if (seeing('"')) {
   while (true) {
     buf[i++] = get();
@@ -597,7 +600,7 @@ char scan() {
  else {
   while (true) {
     buf[i++] = get();
-    if (i >= sizeof(buf)-1) { fprintf(stderr, "truncating!\n"); break; }
+    if (i >= sizeof(buf)-1) { fprintf(stderr, "truncating!\n"); abort(); break; }
     if (seeing('(')) break;
     if (seeing(')')) break;
     if (seeing(' ')) break;
@@ -617,6 +620,7 @@ L list() {
 }
 L tick() {
  if (*buf == ',') return Read();
+ if (*buf == '@') return Read();
  if (*buf == ')') return nil;
  if (*buf != '(') return cons(atom("quote"),cons(parse(),nil));
  L tick2();
@@ -624,6 +628,15 @@ L tick() {
 }
 L tick2() {
  if (*buf == ')') return nil;
+ if (*buf == '@') return tick();
+ /* TODO: this is needed upstream. Why isn't it needed here? */
+//?  if (*buf == '@') {
+//?    L car = tick();
+//?    /* splice only supported at end of list */
+//?    scan();
+//?    assert(*buf == ')');
+//?    return car;
+//?  }
  L car = tick();
  scan();
  return cons(atom("cons"), cons(car, cons(tick2(), nil)));
@@ -634,6 +647,7 @@ L parse() {
  if (*buf == '\'') return cons(atom("quote"),cons(Read(),nil));
  if (*buf == '`') return scan(),tick();
  if (*buf == '"') return str(buf);
+ assert(*buf != ')');
  return sscanf(buf,"%lg%n",&n,&i) > 0 && !buf[i] ? n : atom(buf);
 }
 
@@ -874,20 +888,26 @@ int main(int argc,char **argv) {
    /* Remove handler first to prevent prompt display during output */
    rl_callback_handler_remove();
 
+   int n = strlen(pending_line);
    ptr = pending_line;
    see = ' ';
 
    if ((err = setjmp(jb)) > 0) {
     printf("Error: %s\n", err_msg(err));
    } else {
+    bool error_found = false;
     L x = Read();
-    while (*ptr == ' ' || *ptr == '\t') ptr++;  /* Skip trailing whitespace */
-    if (*ptr && *ptr != '\n') {
-     printf("Error: Incomplete or invalid expression\n");
-    } else if (!equ(x, nil)) {
-     L result = eval(x, env);
-     print(result);
-     printf("\n");
+    if (ptr - pending_line < n) {
+      while (*ptr == ' ' || *ptr == '\t') ptr++;  /* Skip trailing whitespace */
+      if (*ptr && *ptr != '\n') {
+       printf("Error: Trailing characters: \"%s\"; only one expression per line please\n", ptr);
+       error_found = true;
+      }
+    }
+    if (!error_found) {
+      L result = eval(x, env);
+      print(result);
+      printf("\n");
     }
    }
 
