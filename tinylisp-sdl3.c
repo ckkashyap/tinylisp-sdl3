@@ -589,6 +589,7 @@ char get() { char c = see; look(); return c; }
 char scan() {
  I i = 0;
  while (seeing(' ') || seeing(';')) if (get() == ';') while (!seeing('\n')) get();
+ if (see == EOF) return buf[0] = 0;
  if (seeing('(') || seeing(')') || seeing('\'') || seeing('`') || seeing(',') || seeing('@')) buf[i++] = get();
  else if (seeing('"')) {
   while (true) {
@@ -647,6 +648,7 @@ L parse() {
  if (*buf == '\'') return cons(atom("quote"),cons(Read(),nil));
  if (*buf == '`') return scan(),tick();
  if (*buf == '"') return str(buf);
+ if (*buf == '\0') return nil;
  assert(*buf != ')');
  return sscanf(buf,"%lg%n",&n,&i) > 0 && !buf[i] ? n : atom(buf);
 }
