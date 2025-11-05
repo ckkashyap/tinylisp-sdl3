@@ -778,6 +778,7 @@ int main(int argc,char **argv) {
  using_history();
  signal(SIGINT,stop);
 
+ printf("Loading common.lisp ...");  fflush(stdout);
  in = fopen("common.lisp", "r");
  if (in) {
   if ((err = setjmp(jb)) == 0) {
@@ -792,16 +793,15 @@ int main(int argc,char **argv) {
   in = NULL;
   see = ' ';
  }
+ printf(" done\n");
 
  /* Load any files provided on the commandline */
  for (int arg = 1; arg < argc; arg++) {
   in = fopen(argv[arg], "r");
   if (in) {
-   printf("Loading %s...\n", argv[arg]);
-   fflush(stdout);
+   printf("Loading %s ...", argv[arg]);  fflush(stdout);
    if ((err = setjmp(jb)) > 0) {
     printf("Error while loading file: %s\n", err_msg(err));
-    fflush(stdout);
    } else {
     while (1) {
      gc();
@@ -809,8 +809,7 @@ int main(int argc,char **argv) {
      if (in == NULL || see == EOF) break;
      eval(Read(), env);
     }
-    printf("File loaded successfully!\n");
-    fflush(stdout);
+    printf(" done\n");
    }
    if (in) fclose(in);
    in = NULL;
@@ -935,7 +934,6 @@ int main(int argc,char **argv) {
      eval(keypressed_expr, env);
     } else {
      printf("Error in keypressed callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
 
@@ -945,7 +943,6 @@ int main(int argc,char **argv) {
      eval(keyreleased_expr, env);
     } else {
      printf("Error in keyreleased callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
 
@@ -957,7 +954,6 @@ int main(int argc,char **argv) {
      eval(mousepressed_expr, env);
     } else {
      printf("Error in mousepressed callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
 
@@ -969,7 +965,6 @@ int main(int argc,char **argv) {
      eval(mousereleased_expr, env);
     } else {
      printf("Error in mousereleased callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
 
@@ -982,7 +977,6 @@ int main(int argc,char **argv) {
      eval(mousemoved_expr, env);
     } else {
      printf("Error in mousemoved callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
 
@@ -995,7 +989,6 @@ int main(int argc,char **argv) {
      eval(wheelmoved_expr, env);
     } else {
      printf("Error in wheelmoved callback: %s\n", err_msg(err));
-     fflush(stdout);
     }
    }
   }
@@ -1009,7 +1002,6 @@ int main(int argc,char **argv) {
     eval(update_expr, env);
    } else {
     printf("Error in update callback: %s\n", err_msg(err));
-    fflush(stdout);
    }
   }
 
@@ -1020,7 +1012,6 @@ int main(int argc,char **argv) {
     SDL_RenderPresent(sdl_renderer);
    } else {
     printf("Error in draw callback: %s\n", err_msg(err));
-    fflush(stdout);
    }
   }
 
