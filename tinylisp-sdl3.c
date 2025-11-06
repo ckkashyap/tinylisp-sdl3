@@ -574,10 +574,6 @@ void look() {
  if (in) {
   int c = getc(in);
   see = c;
-  if (c != EOF) return;
-  fclose(in);
-  in = NULL;
-  see = EOF;
   return;
  }
  if (!(see = *ptr++)) see = '\n';
@@ -644,6 +640,7 @@ L tick2() {
 }
 L parse() {
  L n; I i;
+//?  printf("%s\n", buf);
  if (*buf == '(') return list();
  if (*buf == '\'') return cons(atom("quote"),cons(Read(),nil));
  if (*buf == '`') return scan(),tick();
@@ -784,12 +781,11 @@ int main(int argc,char **argv) {
   if ((err = setjmp(jb)) == 0) {
    while (1) {
     gc();
-    look();
-    if (in == NULL || see == EOF) break;
     eval(Read(), env);
+     if (see == EOF) break;
    }
   }
-  if (in) fclose(in);
+  fclose(in);
   in = NULL;
   see = ' ';
  }
@@ -805,13 +801,12 @@ int main(int argc,char **argv) {
    } else {
     while (1) {
      gc();
-     look();
-     if (in == NULL || see == EOF) break;
      eval(Read(), env);
+     if (see == EOF) break;
     }
     printf(" done\n");
    }
-   if (in) fclose(in);
+   fclose(in);
    in = NULL;
    see = ' ';
   } else {
