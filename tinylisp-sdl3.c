@@ -889,8 +889,9 @@ int main(int argc,char **argv) {
    /* Remove handler first to prevent prompt display during output */
    rl_callback_handler_remove();
 
-   int n = strlen(pending_line);
    ptr = pending_line;
+   char *end = ptr + strlen(ptr);
+   assert(*end == '\0');
    see = ' ';
 
    if ((err = setjmp(jb)) > 0) {
@@ -898,7 +899,7 @@ int main(int argc,char **argv) {
    } else {
     bool error_found = false;
     L x = Read();
-    if (ptr - pending_line < n) {
+    if (ptr <= end) {
       while (*ptr == ' ' || *ptr == '\t') ptr++;  /* Skip trailing whitespace */
       if (*ptr && *ptr != '\n') {
        printf("Error: Trailing characters: \"%s\"; only one expression per line please\n", ptr);
