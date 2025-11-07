@@ -2,10 +2,8 @@
 
 # binary names distinct from source names for better tab-completion
 
-# Detect OS
 UNAME_S := $(shell uname -s)
 
-# macOS (Darwin) configuration
 ifeq ($(UNAME_S),Darwin)
     CC = clang
     HOMEBREW_PREFIX = /opt/homebrew
@@ -13,7 +11,6 @@ ifeq ($(UNAME_S),Darwin)
     SDL_LIBS = -L$(HOMEBREW_PREFIX)/lib -lSDL3 -lSDL3_ttf
 endif
 
-# Linux configuration
 ifeq ($(UNAME_S),Linux)
     CC = tcc
     SDL_CFLAGS = $(shell pkg-config --cflags sdl3) -ISDL_ttf/include
