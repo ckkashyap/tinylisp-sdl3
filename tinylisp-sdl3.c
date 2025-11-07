@@ -237,7 +237,6 @@ L f_trace(L t,L *_) { tr = not(t) ? !tr : (I)num(car(t)); return num(tr); }
 /* SDL3 primitives */
 SDL_Window *sdl_window = NULL;
 SDL_Renderer *sdl_renderer = NULL;
-bool sdl_initialized = false;
 int current_r = 255, current_g = 255, current_b = 255, current_a = 255;
 TTF_Font *current_font = NULL;
 float mouse_wheel_x = 0.0f;
@@ -736,8 +735,6 @@ int main(int argc,char **argv) {
   return 1;
  }
 
- sdl_initialized = true;
-
  printf("SDL3 initialized - window ready for graphics!\n");
  printf("Available graphics commands:\n");
  printf("  (clear)             - clear screen with current color\n");
@@ -759,8 +756,8 @@ int main(int argc,char **argv) {
  printf("  (mouse-wheel-x)         - get horizontal wheel movement this frame\n");
  printf("  (mouse-wheel-y)         - get vertical wheel movement this frame\n\n");
  printf("Callbacks:\n");
- printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
  printf("  (define draw (lambda () ...))     - called each frame\n");
+ printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
  printf("  (define keypressed (lambda (scancode isrepeat) ...))\n");
  printf("  (define keyreleased (lambda (scancode) ...))\n");
  printf("  (define mousepressed (lambda (x y button) ...))\n");
