@@ -5,8 +5,8 @@
     - lexically-scoped locals in lambda, let, let*, letrec, letrec*
     - proper tail-recursion, including tail calls through begin, cond, if, let, let*, letrec, letrec*
     - exceptions and error handling with safe return to REPL after an error
-    - break with CTRL-C to return to the REPL (compile: lisp.c -DHAVE_SIGNAL_H)
-    - REPL with readline (compile: lisp.c -DHAVE_READLINE_H -lreadline)
+    - break with CTRL-C to return to the REPL
+    - REPL with readline
     - load Lisp source code files
     - execution tracing to display Lisp evaluation steps
     - mark-sweep garbage collector to recycle unused cons pair cells
@@ -18,21 +18,12 @@
 #include <string.h>
 #include <setjmp.h>
 
-#ifdef HAVE_SIGNAL_H
 #include <signal.h>             /* to catch CTRL-C and continue the REPL */
 #define BREAK_ON  signal(SIGINT, (void(*)(int))err)
 #define BREAK_OFF signal(SIGINT, SIG_IGN)
-#else
-#define BREAK_ON  (void)0
-#define BREAK_OFF (void)0
-#endif
 
-#ifdef HAVE_READLINE_H
 #include <readline/readline.h>  /* for convenient line editing ... */
 #include <readline/history.h>   /* ... and a history of previous Lisp input */
-#else
-void using_history() { }
-#endif
 
 /* floating point output format */
 #define FLOAT "%.17lg"
@@ -355,7 +346,6 @@ char get() {
     }
   }
   else {
-#ifdef HAVE_READLINE_H
     if (see == '\n') {                          /* if looking at the end of the current readline line */
       BREAK_OFF;                                /* disable interrupt to prevent free() without final line = NULL */
       if (line)                                 /* free the old line that was malloc'ed by readline */
@@ -369,17 +359,6 @@ char get() {
     }
     if (!(see = *ptr++))                        /* look at the next character in the readline line */
       see = '\n';                               /* but when it is \0, replace it with a newline \n */
-#else
-    if (see == '\n') {
-      printf("%s", ps);
-      strcpy(ps, "?");
-    }
-    if ((c = getchar()) == EOF) {
-      freopen("/dev/tty", "r", stdin);
-      c = '\n';
-    }
-    see = c;
-#endif
   }
   return look;                                  /* return the previous character we were looking at */
 }
