@@ -634,15 +634,13 @@ L tick() {
 }
 L tick2() {
  if (*buf == ')') return nil;
- if (*buf == '@') return tick();
- /* TODO: this is needed upstream. Why isn't it needed here? */
-//?  if (*buf == '@') {
-//?    L car = tick();
-//?    /* splice only supported at end of list */
-//?    scan();
-//?    assert(*buf == ')');
-//?    return car;
-//?  }
+ if (*buf == '@') {
+   L car = tick();
+   /* splice only supported at end of list */
+   scan();
+   assert(*buf == ')');
+   return car;
+ }
  L car = tick();
  scan();
  return cons(atom("cons"), cons(car, cons(tick2(), nil)));
