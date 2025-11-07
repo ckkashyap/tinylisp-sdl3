@@ -1,4 +1,4 @@
-/* Lisp with extras and SDL3 graphics by Kartik Agaram 2025 */
+/* Lisp with SDL3 graphics by Kartik Agaram 2025 */
 /* Based on lisp.c by Robert A. van Engelen 2022 BSD-3 license (https://github.com/Robert-van-Engelen/lisp)
     - double precision floating point, symbols, strings, lists, proper closures, and macros
     - over 40 built-in Lisp primitives

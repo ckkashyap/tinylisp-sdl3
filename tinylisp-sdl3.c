@@ -1,5 +1,5 @@
 /* TinyLisp with extras and SDL3 graphics by Kartik Agaram 2025 */
-/* TinyLisp with extras by Robert A. van Engelen 2025 */
+/* Based on TinyLisp with extras by Robert A. van Engelen 2025 (https://github.com/Robert-van-Engelen/tinylisp) */
 
 #include <assert.h>
 #include <stdlib.h>
