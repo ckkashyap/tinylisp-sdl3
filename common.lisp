@@ -38,4 +38,3 @@
 (define begin (lambda (x . args) (if args (begin . args) x)))
 
 (define mac (macro (name params . body) `(define ,name (macro ,params @body))))
-(define foo (macro (a . b) `(list ,a @b)))

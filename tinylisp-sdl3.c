@@ -574,25 +574,18 @@ void look() {
  if (in) {
   int c = getc(in);
   see = c;
-  printf("look: see = %c\n", see);
   return;
  }
  if (!(see = *ptr++)) see = '\n';
- printf("look: see = %c\n", see);
 }
 I seeing(char c) { return c == ' ' ? see > 0 && see <= c : see == c; }
-char get() { char c = see; look();
-  printf("get: curr = %c see = %c\n", c, see);
-return c; }
+char get() { char c = see; look(); return c; }
 
 /* section 7: parsing Lisp expressions */
 char scan() {
  I i = 0;
  while (seeing(' ') || seeing(';')) if (get() == ';') while (!seeing('\n')) get();
- if (see == EOF) {
-  printf("scan: EOF\n");
-  return buf[0] = 0;
- }
+ if (see == EOF) return buf[0] = 0;
  if (seeing('(') || seeing(')') || seeing('\'') || seeing('`') || seeing(',') || seeing('@')) buf[i++] = get();
  else if (seeing('"')) {
   while (true) {
@@ -610,9 +603,7 @@ char scan() {
     if (seeing(' ')) break;
   }
  }
- buf[i] = 0;
- printf("scan: %d %s\n", i, buf);
- return *buf;
+ return buf[i] = 0,*buf;
 }
 L Read() { return scan(),parse(); }
 
@@ -646,22 +637,12 @@ L tick2() {
  return cons(atom("cons"), cons(car, cons(tick2(), nil)));
 }
 L parse() {
- L parse2();
- printf("parse: %s\n", buf);
- L result = parse2();
- printf("parse: => ");
- print(result);
- printf("\n");
- return result;
-}
-L parse2() {
  L n; I i;
  if (*buf == '(') return list();
  if (*buf == '\'') return cons(atom("quote"),cons(Read(),nil));
  if (*buf == '`') return scan(),tick();
  if (*buf == '"') return str(buf);
  if (*buf == '\0') return nil;
- fflush(stdout);
  assert(*buf != ')');
  return sscanf(buf,"%lg%n",&n,&i) > 0 && !buf[i] ? n : atom(buf);
 }
@@ -791,7 +772,7 @@ int main(int argc,char **argv) {
  using_history();
  signal(SIGINT,stop);
 
- printf("Loading common.lisp\n");
+ printf("Loading common.lisp ...");  fflush(stdout);
  in = fopen("common.lisp", "r");
  if (in) {
   if ((err = setjmp(jb)) == 0) {
@@ -811,7 +792,7 @@ int main(int argc,char **argv) {
  for (int arg = 1; arg < argc; arg++) {
   in = fopen(argv[arg], "r");
   if (in) {
-   printf("Loading %s\n", argv[arg]);
+   printf("Loading %s ...", argv[arg]);  fflush(stdout);
    if ((err = setjmp(jb)) > 0) {
     printf("Error while loading file: %s\n", err_msg(err));
    } else {
