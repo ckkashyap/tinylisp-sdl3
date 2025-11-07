@@ -776,11 +776,10 @@ int main(int argc,char **argv) {
  in = fopen("common.lisp", "r");
  if (in) {
   if ((err = setjmp(jb)) == 0) {
-   while (1) {
+   do {
     gc();
     eval(Read(), env);
-     if (see == EOF) break;
-   }
+   } while (see != EOF);
   }
   fclose(in);
   in = NULL;
@@ -796,11 +795,10 @@ int main(int argc,char **argv) {
    if ((err = setjmp(jb)) > 0) {
     printf("Error while loading file: %s\n", err_msg(err));
    } else {
-    while (1) {
+    do {
      gc();
      eval(Read(), env);
-     if (see == EOF) break;
-    }
+    } while (see != EOF);
     printf(" done\n");
    }
    fclose(in);
