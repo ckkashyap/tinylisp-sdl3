@@ -25,6 +25,12 @@
 #include <readline/readline.h>  /* for convenient line editing ... */
 #include <readline/history.h>   /* ... and a history of previous Lisp input */
 
+#include <sys/select.h>         /* for select() in non-blocking stdin check */
+#include <unistd.h>             /* for STDIN_FILENO */
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3_ttf/SDL_ttf.h>
+
 /* floating point output format */
 #define FLOAT "%.17lg"
 
@@ -309,6 +315,13 @@ L assoc(L v, L e) {
   return T(e) == CONS ? cdr(car(e)) : T(v) == ATOM ? ERR(3, "unbound %s ", A+ord(v)) : err(3);
 }
 
+/* check if a symbol is bound in an environment (for callback checking) */
+I bound(L v, L e) {
+  while (T(e) == CONS && !equ(v, car(car(e))))
+    e = cdr(e);
+  return T(e) == CONS;
+}
+
 /* not(x) is nonzero if x is the Lisp () empty list */
 I not(L x) {
   return T(x) == NIL;
@@ -335,6 +348,10 @@ FILE *input(const char *s) {
 /* tokenization buffer, the next character we're looking at, the readline line, prompt and input file */
 char buf[256], see = '\n', *ptr = "", *line = NULL, ps[20];
 
+/* Readline callback state for non-blocking REPL */
+char *pending_line = NULL;
+int line_ready = 0;
+
 /* return the character we see, advance to the next character */
 char get() {
   int c, look = see;
@@ -346,17 +363,6 @@ char get() {
     }
   }
   else {
-    if (see == '\n') {                          /* if looking at the end of the current readline line */
-      BREAK_OFF;                                /* disable interrupt to prevent free() without final line = NULL */
-      if (line)                                 /* free the old line that was malloc'ed by readline */
-        free(line);
-      line = NULL;
-      BREAK_ON;                                 /* enable interrupt */
-      while (!(ptr = line = readline(ps)))      /* read new line and set ptr to start of the line */
-        freopen("/dev/tty", "r", stdin);        /* try again when line is NULL after EOF by CTRL-D */
-      add_history(line);                        /* make it part of the history */
-      strcpy(ps, "?");                          /* change prompt to ? */
-    }
     if (!(see = *ptr++))                        /* look at the next character in the readline line */
       see = '\n';                               /* but when it is \0, replace it with a newline \n */
   }
@@ -464,6 +470,14 @@ L parse() {
 
 /* the file we are writing to, stdout by default */
 FILE *out;
+
+/* SDL3 global variables */
+SDL_Window *sdl_window = NULL;
+SDL_Renderer *sdl_renderer = NULL;
+int current_r = 255, current_g = 255, current_b = 255, current_a = 255;
+TTF_Font *current_font = NULL;
+float mouse_wheel_x = 0.0f;
+float mouse_wheel_y = 0.0f;
 
 /* construct a new list of evaluated expressions in list t, i.e. the arguments passed to a function or primitive */
 L eval(L, L);
@@ -754,6 +768,189 @@ L f_quit(L t, L *_) {
   exit(0);
 }
 
+/* SDL3 primitives */
+L f_sdl_clear(L t, L *_) {
+  if (!sdl_renderer) return nil;
+  SDL_SetRenderDrawColor(sdl_renderer, current_r, current_g, current_b, current_a);
+  SDL_RenderClear(sdl_renderer);
+  return tru;
+}
+
+L f_sdl_present(L t, L *_) {
+  if (!sdl_renderer) return nil;
+  SDL_RenderPresent(sdl_renderer);
+  SDL_PollEvent(NULL);
+  return tru;
+}
+
+L f_sdl_color(L t, L *_) {
+  if (!sdl_renderer) return nil;
+  current_r = (int)num(car(t));
+  current_g = (int)num(car(cdr(t)));
+  current_b = (int)num(car(cdr(cdr(t))));
+  L a_arg = cdr(cdr(cdr(t)));
+  current_a = T(a_arg) == NIL ? 255 : (int)num(car(a_arg));
+  SDL_SetRenderDrawColor(sdl_renderer, current_r, current_g, current_b, current_a);
+  return tru;
+}
+
+L f_sdl_rect(L t, L *_) {
+  if (!sdl_renderer) return nil;
+  SDL_FRect rect;
+  rect.x = num(car(t));
+  rect.y = num(car(cdr(t)));
+  rect.w = num(car(cdr(cdr(t))));
+  rect.h = num(car(cdr(cdr(cdr(t)))));
+  SDL_RenderFillRect(sdl_renderer, &rect);
+  return tru;
+}
+
+L f_sdl_line(L t, L *_) {
+  if (!sdl_renderer) return nil;
+  float x1 = num(car(t));
+  float y1 = num(car(cdr(t)));
+  float x2 = num(car(cdr(cdr(t))));
+  float y2 = num(car(cdr(cdr(cdr(t)))));
+  SDL_RenderLine(sdl_renderer, x1, y1, x2, y2);
+  return tru;
+}
+
+L f_sdl_delay(L t, L *_) {
+  SDL_Delay((unsigned int)num(car(t)));
+  return tru;
+}
+
+L f_load_font(L t, L *_) {
+  L filename = car(t);
+  L ptsize = car(cdr(t));
+
+  if (T(filename) != ATOM && T(filename) != STRG) return err(3);
+
+  if (current_font) {
+    TTF_CloseFont(current_font);
+    current_font = NULL;
+  }
+
+  current_font = TTF_OpenFont(A+ord(filename), (float)num(ptsize));
+  if (!current_font) {
+    fprintf(stderr, "Error loading font: %s\n", SDL_GetError());
+    return nil;
+  }
+
+  return tru;
+}
+
+L f_text(L t, L *_) {
+  if (!sdl_renderer || !current_font) return nil;
+
+  float x = num(car(t));
+  float y = num(car(cdr(t)));
+  L text_atom = car(cdr(cdr(t)));
+
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  const char *text_str = A+ord(text_atom);
+
+  SDL_Color text_color;
+  text_color.r = current_r;
+  text_color.g = current_g;
+  text_color.b = current_b;
+  text_color.a = current_a;
+  SDL_Surface *text_surface = TTF_RenderText_Blended(current_font, text_str, 0, text_color);
+  if (!text_surface) {
+    fprintf(stderr, "Error rendering text: %s\n", SDL_GetError());
+    return nil;
+  }
+
+  SDL_Texture *text_texture = SDL_CreateTextureFromSurface(sdl_renderer, text_surface);
+  if (!text_texture) {
+    SDL_DestroySurface(text_surface);
+    fprintf(stderr, "Error creating texture: %s\n", SDL_GetError());
+    return nil;
+  }
+
+  int text_w = text_surface->w;
+  int text_h = text_surface->h;
+  SDL_FRect dest = {x, y, (float)text_w, (float)text_h};
+
+  SDL_RenderTexture(sdl_renderer, text_texture, NULL, &dest);
+
+  SDL_DestroyTexture(text_texture);
+  SDL_DestroySurface(text_surface);
+
+  return tru;
+}
+
+L f_text_width(L t, L *_) {
+  if (!current_font) return num(0);
+
+  L text_atom = car(t);
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  const char *text_str = A+ord(text_atom);
+
+  int w = 0, h = 0;
+  if (!TTF_GetStringSize(current_font, text_str, 0, &w, &h)) {
+    fprintf(stderr, "Error measuring text: %s\n", SDL_GetError());
+    return num(0);
+  }
+
+  return num(w);
+}
+
+L f_text_height(L t, L *_) {
+  if (!current_font) return num(0);
+
+  L text_atom = car(t);
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  const char *text_str = A+ord(text_atom);
+
+  int w = 0, h = 0;
+  if (!TTF_GetStringSize(current_font, text_str, 0, &w, &h)) {
+    fprintf(stderr, "Error measuring text: %s\n", SDL_GetError());
+    return num(0);
+  }
+
+  return num(h);
+}
+
+L f_key_down(L t, L *_) {
+  int scancode = (int)num(car(t));
+  const bool *state = SDL_GetKeyboardState(NULL);
+  return state && state[scancode] ? tru : nil;
+}
+
+L f_mouse_x(L t, L *_) {
+  float x, y;
+  SDL_GetMouseState(&x, &y);
+  return num((int)x);
+}
+
+L f_mouse_y(L t, L *_) {
+  float x, y;
+  SDL_GetMouseState(&x, &y);
+  return num((int)y);
+}
+
+L f_mouse_button(L t, L *_) {
+  int button = (int)num(car(t));
+  Uint32 state = SDL_GetMouseState(NULL, NULL);
+
+  int pressed = 0;
+  switch(button) {
+    case 1: pressed = (state & SDL_BUTTON_LMASK) != 0; break;
+    case 2: pressed = (state & SDL_BUTTON_MMASK) != 0; break;
+    case 3: pressed = (state & SDL_BUTTON_RMASK) != 0; break;
+  }
+  return pressed ? tru : nil;
+}
+
+L f_mouse_wheel_x(L t, L *_) {
+  return num(mouse_wheel_x);
+}
+
+L f_mouse_wheel_y(L t, L *_) {
+  return num(mouse_wheel_y);
+}
+
 /* table of Lisp primitives, each has a name s, a function pointer f, and an evaluation mode m */
 struct {
   const char *s;
@@ -803,6 +1000,22 @@ struct {
   {"catch",    f_catch,   SPECIAL},             /* (catch <expr>) => <value-of-expr> if no exception else (ERR . n) */
   {"throw",    f_throw,   NORMAL},              /* (throw n) -- raise exception error code n (integer != 0) */
   {"quit",     f_quit,    NORMAL},              /* (quit) -- bye! */
+  {"clear",    f_sdl_clear,   NORMAL},          /* (clear) -- clear screen with current color */
+  {"present",  f_sdl_present, NORMAL},          /* (present) -- update display */
+  {"color",    f_sdl_color,   NORMAL},          /* (color r g b [a]) -- set drawing color (0-255) */
+  {"rect",     f_sdl_rect,    NORMAL},          /* (rect x y w h) -- draw filled rectangle */
+  {"line",     f_sdl_line,    NORMAL},          /* (line x1 y1 x2 y2) -- draw line */
+  {"delay",    f_sdl_delay,   NORMAL},          /* (delay ms) -- delay milliseconds */
+  {"load-font",     f_load_font,     NORMAL},   /* (load-font path size) -- load TrueType font */
+  {"text",          f_text,          NORMAL},   /* (text x y string) -- render text at position */
+  {"text-width",    f_text_width,    NORMAL},   /* (text-width string) -- get text width in pixels */
+  {"text-height",   f_text_height,   NORMAL},   /* (text-height string) -- get text height in pixels */
+  {"key-down?",     f_key_down,      NORMAL},   /* (key-down? scancode) -- check if key pressed */
+  {"mouse-x",       f_mouse_x,       NORMAL},   /* (mouse-x) -- get mouse X position */
+  {"mouse-y",       f_mouse_y,       NORMAL},   /* (mouse-y) -- get mouse Y position */
+  {"mouse-button?", f_mouse_button,  NORMAL},   /* (mouse-button? btn) -- check mouse button state */
+  {"mouse-wheel-x", f_mouse_wheel_x, NORMAL},   /* (mouse-wheel-x) -- get horizontal wheel movement */
+  {"mouse-wheel-y", f_mouse_wheel_y, NORMAL},   /* (mouse-wheel-y) -- get vertical wheel movement */
   {0}
 };
 
@@ -943,10 +1156,95 @@ void print(L x) {
  |      REPL                                                                  |
 \*----------------------------------------------------------------------------*/
 
+/* readline callback for non-blocking input */
+void readline_callback(char *input_line) {
+  if (input_line == NULL) {
+    /* EOF (ctrl+d) */
+    pending_line = NULL;
+    line_ready = 0;
+    return;
+  }
+
+  if (*input_line) {
+    add_history(input_line);
+  }
+
+  pending_line = input_line;
+  line_ready = 1;
+}
+
+/* check if stdin has data ready to read */
+int stdin_ready() {
+  fd_set readfds;
+  struct timeval timeout;
+
+  FD_ZERO(&readfds);
+  FD_SET(STDIN_FILENO, &readfds);
+
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 0;
+
+  int result = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout);
+  return result > 0 && FD_ISSET(STDIN_FILENO, &readfds);
+}
+
 /* entry point with Lisp initialization, error handling and REPL */
 int main(int argc, char **argv) {
-  int i;
-  printf("lisp");
+  int i, err;
+  printf("Lisp with SDL3 Graphics\n");
+
+  /* Initialize SDL3 */
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+    return 1;
+  }
+
+  if (!TTF_Init()) {
+    fprintf(stderr, "TTF_Init failed: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
+
+  /* Create window and renderer */
+  if (!SDL_CreateWindowAndRenderer("Lisp SDL3 Graphics", 800, 600,
+                                     SDL_WINDOW_RESIZABLE, &sdl_window, &sdl_renderer)) {
+    fprintf(stderr, "Window and renderer creation failed: %s\n", SDL_GetError());
+    TTF_Quit();
+    SDL_Quit();
+    return 1;
+  }
+
+  printf("SDL3 initialized - window ready for graphics!\n");
+  printf("Available graphics commands:\n");
+  printf("  (clear)             - clear screen with current color\n");
+  printf("  (color r g b [a])   - set drawing color (0-255)\n");
+  printf("  (rect x y w h)      - draw filled rectangle\n");
+  printf("  (line x1 y1 x2 y2)  - draw line\n");
+  printf("  (present)           - update display\n");
+  printf("  (delay ms)          - delay milliseconds\n\n");
+  printf("Text rendering:\n");
+  printf("  (load-font path size)   - load TrueType font\n");
+  printf("  (text x y string)       - draw text at position\n");
+  printf("  (text-width string)     - get text width in pixels\n");
+  printf("  (text-height string)    - get text height in pixels\n\n");
+  printf("Input (keyboard and mouse):\n");
+  printf("  (key-down? scancode)    - check if key pressed (SDL scancode)\n");
+  printf("  (mouse-x)               - get mouse X position\n");
+  printf("  (mouse-y)               - get mouse Y position\n");
+  printf("  (mouse-button? btn)     - check mouse button (1=left, 2=mid, 3=right)\n");
+  printf("  (mouse-wheel-x)         - get horizontal wheel movement this frame\n");
+  printf("  (mouse-wheel-y)         - get vertical wheel movement this frame\n\n");
+  printf("Callbacks:\n");
+  printf("  (define draw (lambda () ...))     - called each frame\n");
+  printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
+  printf("  (define keypressed (lambda (scancode isrepeat) ...))\n");
+  printf("  (define keyreleased (lambda (scancode) ...))\n");
+  printf("  (define mousepressed (lambda (x y button) ...))\n");
+  printf("  (define mousereleased (lambda (x y button) ...))\n");
+  printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
+  printf("  (define wheelmoved (lambda (x y) ...))\n\n");
+
+  /* Initialize Lisp environment */
   input(argc > 1 ? argv[1] : "init.lisp");      /* set input source to load when available */
   out = stdout;
   if (setjmp(jb))                               /* if something goes wrong before REPL, it is fatal */
@@ -959,18 +1257,224 @@ int main(int argc, char **argv) {
     env = pair(atom(prim[i].s), box(PRIM, i), env);
   using_history();
   BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
-  i = setjmp(jb);                               /* init error handler: i is nonzero when thrown */
-  if (i) {
-    while (fin)                                 /* close all open files */
-      fclose(in[--fin]);
-    printf("\e[31;1mERR %d: %s\e[m", i, errors[i > 0 && i <= ERRORS ? i : 0]);
+
+  /* Load init file if available */
+  if (fin && in[0]) {
+    printf("Loading init file...");
+    fflush(stdout);
+    if ((err = setjmp(jb)) == 0) {
+      while (fin) {
+        gc();
+        print(eval(*push(readlisp()), env));
+      }
+    } else {
+      while (fin)
+        fclose(in[--fin]);
+      printf("\e[31;1mERR %d: %s\e[m", err, errors[err > 0 && err <= ERRORS ? err : 0]);
+    }
+    printf(" done\n");
   }
-  while (1) {                                   /* read-evel-print loop */
-    putchar('\n');
-    unwind(N);
-    i = gc();
-    snprintf(ps, sizeof(ps), "%u+%u>", i, sp-hp/8);
-    out = stdout;
-    print(eval(*push(readlisp()), env));
+
+  /* Set up non-blocking REPL */
+  snprintf(ps, sizeof(ps), "> ");
+  printf("\nLisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.\n");
+  printf("You can also use the SDL3 window for graphics.\n\n");
+  rl_callback_handler_install(ps, readline_callback);
+
+  /* Callback symbols */
+  L draw_sym = atom("draw");
+  L update_sym = atom("update");
+  L keypressed_sym = atom("keypressed");
+  L keyreleased_sym = atom("keyreleased");
+  L mousepressed_sym = atom("mousepressed");
+  L mousereleased_sym = atom("mousereleased");
+  L mousemoved_sym = atom("mousemoved");
+  L wheelmoved_sym = atom("wheelmoved");
+
+  /* Pre-allocate callback expressions and protect from GC */
+  L draw_expr = cons(draw_sym, nil);
+  env = pair(atom("__draw_expr__"), draw_expr, env);
+
+  L update_args = cons(num(0), nil);
+  L update_expr = cons(update_sym, update_args);
+  env = pair(atom("__update_expr__"), update_expr, env);
+
+  L keypressed_args = cons(num(0), cons(nil, nil));
+  L keypressed_expr = cons(keypressed_sym, keypressed_args);
+  env = pair(atom("__keypressed_expr__"), keypressed_expr, env);
+
+  L keyreleased_args = cons(num(0), nil);
+  L keyreleased_expr = cons(keyreleased_sym, keyreleased_args);
+  env = pair(atom("__keyreleased_expr__"), keyreleased_expr, env);
+
+  L mousepressed_args = cons(num(0), cons(num(0), cons(num(0), nil)));
+  L mousepressed_expr = cons(mousepressed_sym, mousepressed_args);
+  env = pair(atom("__mousepressed_expr__"), mousepressed_expr, env);
+
+  L mousereleased_args = cons(num(0), cons(num(0), cons(num(0), nil)));
+  L mousereleased_expr = cons(mousereleased_sym, mousereleased_args);
+  env = pair(atom("__mousereleased_expr__"), mousereleased_expr, env);
+
+  L mousemoved_args = cons(num(0), cons(num(0), cons(num(0), cons(num(0), nil))));
+  L mousemoved_expr = cons(mousemoved_sym, mousemoved_args);
+  env = pair(atom("__mousemoved_expr__"), mousemoved_expr, env);
+
+  L wheelmoved_args = cons(num(0), cons(num(0), nil));
+  L wheelmoved_expr = cons(wheelmoved_sym, wheelmoved_args);
+  env = pair(atom("__wheelmoved_expr__"), wheelmoved_expr, env);
+
+  /* Main event loop */
+  SDL_Event event;
+  int running = 1;
+  Uint64 last_time = SDL_GetTicks();
+
+  while (running) {
+    gc();
+
+    /* Check for stdin input */
+    if (stdin_ready())
+      rl_callback_read_char();
+
+    /* Process a complete line if ready */
+    if (line_ready && pending_line) {
+      line_ready = 0;
+
+      /* Remove handler to prevent prompt during output */
+      rl_callback_handler_remove();
+
+      ptr = pending_line;
+      char *end = ptr + strlen(ptr);
+      see = '\n';
+
+      if ((err = setjmp(jb)) > 0) {
+        printf("\e[31;1mERR %d: %s\e[m\n", err, errors[err > 0 && err <= ERRORS ? err : 0]);
+      } else {
+        L x = readlisp();
+        /* Check for trailing characters */
+        while (*ptr == ' ' || *ptr == '\t') ptr++;
+        if (*ptr && *ptr != '\n') {
+          printf("Error: Trailing characters: \"%s\"; only one expression per line\n", ptr);
+        } else {
+          print(eval(x, env));
+          printf("\n");
+        }
+      }
+
+      free(pending_line);
+      pending_line = NULL;
+
+      /* Reinstall handler to show prompt */
+      fflush(stdout);
+      rl_callback_handler_install("> ", readline_callback);
+    }
+
+    /* Reset mouse wheel state */
+    mouse_wheel_x = 0.0f;
+    mouse_wheel_y = 0.0f;
+
+    /* Process SDL events */
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_EVENT_QUIT)
+        running = 0;
+
+      if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          CAR(keypressed_args) = num(event.key.scancode);
+          CAR(CDR(keypressed_args)) = event.key.repeat ? tru : nil;
+          eval(keypressed_expr, env);
+        } else {
+          printf("\e[31;1mError in keypressed: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+
+      if (event.type == SDL_EVENT_KEY_UP && bound(keyreleased_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          CAR(keyreleased_args) = num(event.key.scancode);
+          eval(keyreleased_expr, env);
+        } else {
+          printf("\e[31;1mError in keyreleased: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+
+      if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && bound(mousepressed_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          CAR(mousepressed_args) = num((int)event.button.x);
+          CAR(CDR(mousepressed_args)) = num((int)event.button.y);
+          CAR(CDR(CDR(mousepressed_args))) = num(event.button.button);
+          eval(mousepressed_expr, env);
+        } else {
+          printf("\e[31;1mError in mousepressed: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+
+      if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && bound(mousereleased_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          CAR(mousereleased_args) = num((int)event.button.x);
+          CAR(CDR(mousereleased_args)) = num((int)event.button.y);
+          CAR(CDR(CDR(mousereleased_args))) = num(event.button.button);
+          eval(mousereleased_expr, env);
+        } else {
+          printf("\e[31;1mError in mousereleased: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+
+      if (event.type == SDL_EVENT_MOUSE_MOTION && bound(mousemoved_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          CAR(mousemoved_args) = num((int)event.motion.x);
+          CAR(CDR(mousemoved_args)) = num((int)event.motion.y);
+          CAR(CDR(CDR(mousemoved_args))) = num((int)event.motion.xrel);
+          CAR(CDR(CDR(CDR(mousemoved_args)))) = num((int)event.motion.yrel);
+          eval(mousemoved_expr, env);
+        } else {
+          printf("\e[31;1mError in mousemoved: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+
+      if (event.type == SDL_EVENT_MOUSE_WHEEL && bound(wheelmoved_sym, env)) {
+        if ((err = setjmp(jb)) == 0) {
+          mouse_wheel_x += event.wheel.x;
+          mouse_wheel_y += event.wheel.y;
+          CAR(wheelmoved_args) = num((int)event.wheel.x);
+          CAR(CDR(wheelmoved_args)) = num((int)event.wheel.y);
+          eval(wheelmoved_expr, env);
+        } else {
+          printf("\e[31;1mError in wheelmoved: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        }
+      }
+    }
+
+    /* Update callback */
+    if (bound(update_sym, env)) {
+      if ((err = setjmp(jb)) == 0) {
+        Uint64 current_time = SDL_GetTicks();
+        CAR(update_args) = num((int)(current_time - last_time));
+        last_time = current_time;
+        eval(update_expr, env);
+      } else {
+        printf("\e[31;1mError in update: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+      }
+    }
+
+    /* Draw callback */
+    if (bound(draw_sym, env)) {
+      if ((err = setjmp(jb)) == 0) {
+        eval(draw_expr, env);
+        SDL_RenderPresent(sdl_renderer);
+      } else {
+        printf("\e[31;1mError in draw: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+      }
+    }
+
+    SDL_Delay(16);  /* ~60 FPS */
   }
+
+  /* Cleanup */
+  rl_callback_handler_remove();
+  if (current_font)
+    TTF_CloseFont(current_font);
+  SDL_DestroyRenderer(sdl_renderer);
+  SDL_DestroyWindow(sdl_window);
+  TTF_Quit();
+  SDL_Quit();
+  return 0;
 }

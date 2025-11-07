@@ -2,11 +2,29 @@
 
 # binary names distinct from source names for better tab-completion
 
+# Detect OS
+UNAME_S := $(shell uname -s)
+
+# macOS (Darwin) configuration
+ifeq ($(UNAME_S),Darwin)
+    CC = clang
+    HOMEBREW_PREFIX = /opt/homebrew
+    SDL_CFLAGS = -I$(HOMEBREW_PREFIX)/include
+    SDL_LIBS = -L$(HOMEBREW_PREFIX)/lib -lSDL3 -lSDL3_ttf
+endif
+
+# Linux configuration
+ifeq ($(UNAME_S),Linux)
+    CC = tcc
+    SDL_CFLAGS = $(shell pkg-config --cflags sdl3) -ISDL_ttf/include
+    SDL_LIBS = -L$(shell pkg-config --variable=libdir sdl3) -lSDL3 -LSDL_ttf/build -lSDL3_ttf -Wl,-rpath,SDL_ttf/build
+endif
+
 small: tinylisp-sdl3.c
-	tcc -g $(shell pkg-config --cflags sdl3) -ISDL_ttf/include tinylisp-sdl3.c -o small -lreadline -lm -L$(shell pkg-config --variable=libdir sdl3) -lSDL3 -LSDL_ttf/build -lSDL3_ttf -Wl,-rpath,SDL_ttf/build
+	$(CC) -g $(SDL_CFLAGS) tinylisp-sdl3.c -o small -lreadline -lm $(SDL_LIBS)
 
 large: lisp-sdl3.c
-	tcc -g $(shell pkg-config --cflags sdl3) -ISDL_ttf/include lisp-sdl3.c -o large -lreadline -lm -L$(shell pkg-config --variable=libdir sdl3) -lSDL3 -LSDL_ttf/build -lSDL3_ttf -Wl,-rpath,SDL_ttf/build
+	$(CC) -g $(SDL_CFLAGS) lisp-sdl3.c -o large -lreadline -lm $(SDL_LIBS)
 
 clean:
-	rm -f small* large*
+	rm -rf small* large*
