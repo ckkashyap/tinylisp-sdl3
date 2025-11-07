@@ -27,4 +27,4 @@ large: lisp-sdl3.c
 	$(CC) -g $(SDL_CFLAGS) lisp-sdl3.c -o large -lreadline -lm $(SDL_LIBS)
 
 clean:
-	rm -rf small* large*
+	rm -rf small small.dSYM large large.dSYM

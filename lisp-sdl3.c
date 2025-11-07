@@ -1245,7 +1245,7 @@ int main(int argc, char **argv) {
   printf("  (define wheelmoved (lambda (x y) ...))\n\n");
 
   /* Initialize Lisp environment */
-  input(argc > 1 ? argv[1] : "init.lisp");      /* set input source to load when available */
+  input(argc > 1 ? argv[1] : "large.lisp");      /* set input source to load when available */
   out = stdout;
   if (setjmp(jb))                               /* if something goes wrong before REPL, it is fatal */
     abort();

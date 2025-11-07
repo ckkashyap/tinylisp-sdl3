@@ -770,8 +770,8 @@ int main(int argc,char **argv) {
  using_history();
  signal(SIGINT,stop);
 
- printf("Loading common.lisp ...");  fflush(stdout);
- in = fopen("common.lisp", "r");
+ printf("Loading small.lisp ...");  fflush(stdout);
+ in = fopen("small.lisp", "r");
  if (in) {
   if ((err = setjmp(jb)) == 0) {
    do {
