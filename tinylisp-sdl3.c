@@ -611,6 +611,7 @@ L Read() { return scan(),parse(); }
 L list() {
  L t,*p;
  for (t = nil,p = &t; ; *p = cons(parse(),nil),p = cell+sp) {
+  if (see == EOF) { fprintf(stderr, "unbalanced '('\n"); abort(); }
   if (scan() == ')') return t;
   if (*buf == '.' && !buf[1]) return *p = Read(),scan(),t;
  }
@@ -643,7 +644,7 @@ L parse() {
  if (*buf == '`') return scan(),tick();
  if (*buf == '"') return str(buf);
  if (*buf == '\0') return nil;
- assert(*buf != ')');
+ if (*buf == ')') { fprintf(stderr, "unbalanced ')'\n"); abort(); }
  return sscanf(buf,"%lg%n",&n,&i) > 0 && !buf[i] ? n : atom(buf);
 }
 
