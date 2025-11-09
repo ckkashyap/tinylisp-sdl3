@@ -1446,8 +1446,6 @@ int main(int argc, char **argv) {
   env = pair(tru, tru, nil);                    /* create environment with symbolic constant #t */
   for (i = 0; prim[i].s; ++i)                   /* expand environment with primitives */
     env = pair(atom(prim[i].s), box(PRIM, i), env);
-  using_history();
-  BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
 
   /* Callback symbols */
   L draw_sym = atom("draw");
@@ -1500,6 +1498,9 @@ int main(int argc, char **argv) {
   }
 
   /* Set up non-blocking REPL */
+  using_history();
+  BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
+
   snprintf(ps, sizeof(ps), "> ");
   printf("\nLisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.\n");
   printf("You can also use the SDL3 window for graphics.\n\n");
