@@ -1406,6 +1406,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
+
   printf("SDL3 initialized - window ready for graphics!\n");
   printf("Available graphics commands:\n");
   printf("  (clear)             - clear screen with current color\n");
