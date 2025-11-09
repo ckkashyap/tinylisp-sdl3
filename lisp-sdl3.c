@@ -1449,14 +1449,6 @@ int main(int argc, char **argv) {
   using_history();
   BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
 
-  /* Load init file */
-  noisy_load("init.lisp");
-
-  /* Load all command-line files */
-  for (i = 1; i < argc; ++i) {
-    noisy_load(argv[i]);
-  }
-
   /* Callback symbols */
   L draw_sym = atom("draw");
   L update_sym = atom("update");
@@ -1498,6 +1490,14 @@ int main(int argc, char **argv) {
   L wheelmoved_args = cons(num(0), cons(num(0), nil));
   L wheelmoved_expr = cons(wheelmoved_sym, wheelmoved_args);
   env = pair(atom("__wheelmoved_expr__"), wheelmoved_expr, env);
+
+  /* Load init file */
+  noisy_load("init.lisp");
+
+  /* Load all command-line files */
+  for (i = 1; i < argc; ++i) {
+    noisy_load(argv[i]);
+  }
 
   /* Set up non-blocking REPL */
   snprintf(ps, sizeof(ps), "> ");
