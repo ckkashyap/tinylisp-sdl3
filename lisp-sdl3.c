@@ -1102,6 +1102,9 @@ L f_mouse_button(L t, L *_) {
     case 1: pressed = (state & SDL_BUTTON_LMASK) != 0; break;
     case 2: pressed = (state & SDL_BUTTON_MMASK) != 0; break;
     case 3: pressed = (state & SDL_BUTTON_RMASK) != 0; break;
+    // Extra buttons are present on some pointing devices
+    case 4: pressed = (state & SDL_BUTTON_X1MASK) != 0; break;
+    case 5: pressed = (state & SDL_BUTTON_X2MASK) != 0; break;
   }
   return pressed ? tru : nil;
 }

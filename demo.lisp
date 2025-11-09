@@ -40,6 +40,28 @@
   (color 255 255 255)
   (text 370 60 "Right")
 
+  ; "Extra" buttons X1 (4) and X2 (5) are not always present.
+  ; They are often used as back and forward in browsers.
+  (if (mouse-button? 4)
+    (color 255 100 100)
+    (color 100 100 100))
+  (rect 440 55 70 35)
+  (color 255 255 255)
+  (text 460 60 "X1")
+
+
+  (if (mouse-button? 5)
+    (color 255 100 100)
+    (color 100 100 100))
+  (rect 520 55 70 35)
+  (color 255 255 255)
+  (text 540 60 "X2")
+
+  (color 200 200 200)
+  (line 440 100 590 100)
+  (text 440 110 "'Extra' buttons")
+
+
   ; draw a translucent box around the mouse when left button is pressed
   (when (mouse-button? 1)
     (color 255 100 100 80)
