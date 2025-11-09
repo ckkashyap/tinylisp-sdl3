@@ -350,6 +350,7 @@ FILE *input(const char *s) {
 char buf[256], see = '\n', *ptr = "", *line = NULL, ps[20];
 
 /* Readline callback state for non-blocking REPL */
+bool running = true;
 char *pending_line = NULL;
 bool line_ready = false;
 
@@ -1161,8 +1162,7 @@ void print(L x) {
 void readline_callback(char *input_line) {
   if (input_line == NULL) {
     /* EOF (ctrl+d) */
-    pending_line = NULL;
-    line_ready = false;
+    running = false;
     return;
   }
 
@@ -1326,7 +1326,6 @@ int main(int argc, char **argv) {
 
   /* Main event loop */
   SDL_Event event;
-  bool running = true;
   Uint64 last_time = SDL_GetTicks();
 
   while (running) {
