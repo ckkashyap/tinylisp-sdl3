@@ -713,7 +713,7 @@ bool stdin_ready() {
 
 /* section 10: read-eval-print loop (REPL) */
 int main(int argc,char **argv) {
- I i, err; printf("TinyLisp with SDL3 Graphics\n");
+ I i, catch; printf("TinyLisp with SDL3 Graphics\n");
 
  if (!SDL_Init(SDL_INIT_VIDEO)) {
   fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -773,7 +773,7 @@ int main(int argc,char **argv) {
  printf("Loading small.lisp ...");  fflush(stdout);
  in = fopen("small.lisp", "r");
  if (in) {
-  if ((err = setjmp(jb)) == 0) {
+  if ((catch = setjmp(jb)) == 0) {
    do {
     gc();
     eval(Read(), env);
@@ -790,8 +790,8 @@ int main(int argc,char **argv) {
   in = fopen(argv[arg], "r");
   if (in) {
    printf("Loading %s ...", argv[arg]);  fflush(stdout);
-   if ((err = setjmp(jb)) > 0) {
-    printf("Error while loading file: %s\n", err_msg(err));
+   if ((catch = setjmp(jb)) > 0) {
+    printf("Error while loading file: %s\n", err_msg(catch));
    } else {
     do {
      gc();
@@ -882,8 +882,8 @@ int main(int argc,char **argv) {
    assert(*end == '\0');
    see = ' ';
 
-   if ((err = setjmp(jb)) > 0) {
-    printf("Error: %s\n", err_msg(err));
+   if ((catch = setjmp(jb)) > 0) {
+    printf("Error: %s\n", err_msg(catch));
    } else {
     bool error_found = false;
     L x = Read();
@@ -917,90 +917,90 @@ int main(int argc,char **argv) {
    if (event.type == SDL_EVENT_QUIT) running = false;
 
    if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      cell[ord(keypressed_args)+1] = num(event.key.scancode);
      cell[ord(cdr(keypressed_args))+1] = event.key.repeat ? tru : nil;
      eval(keypressed_expr, env);
     } else {
-     printf("Error in keypressed callback: %s\n", err_msg(err));
+     printf("Error in keypressed callback: %s\n", err_msg(catch));
     }
    }
 
    if (event.type == SDL_EVENT_KEY_UP && bound(keyreleased_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      cell[ord(keyreleased_args)+1] = num(event.key.scancode);
      eval(keyreleased_expr, env);
     } else {
-     printf("Error in keyreleased callback: %s\n", err_msg(err));
+     printf("Error in keyreleased callback: %s\n", err_msg(catch));
     }
    }
 
    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && bound(mousepressed_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      cell[ord(mousepressed_args)+1] = num((int)event.button.x);
      cell[ord(cdr(mousepressed_args))+1] = num((int)event.button.y);
      cell[ord(cdr(cdr(mousepressed_args)))+1] = num(event.button.button);
      eval(mousepressed_expr, env);
     } else {
-     printf("Error in mousepressed callback: %s\n", err_msg(err));
+     printf("Error in mousepressed callback: %s\n", err_msg(catch));
     }
    }
 
    if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && bound(mousereleased_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      cell[ord(mousereleased_args)+1] = num((int)event.button.x);
      cell[ord(cdr(mousereleased_args))+1] = num((int)event.button.y);
      cell[ord(cdr(cdr(mousereleased_args)))+1] = num(event.button.button);
      eval(mousereleased_expr, env);
     } else {
-     printf("Error in mousereleased callback: %s\n", err_msg(err));
+     printf("Error in mousereleased callback: %s\n", err_msg(catch));
     }
    }
 
    if (event.type == SDL_EVENT_MOUSE_MOTION && bound(mousemoved_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      cell[ord(mousemoved_args)+1] = num((int)event.motion.x);
      cell[ord(cdr(mousemoved_args))+1] = num((int)event.motion.y);
      cell[ord(cdr(cdr(mousemoved_args)))+1] = num((int)event.motion.xrel);
      cell[ord(cdr(cdr(cdr(mousemoved_args))))+1] = num((int)event.motion.yrel);
      eval(mousemoved_expr, env);
     } else {
-     printf("Error in mousemoved callback: %s\n", err_msg(err));
+     printf("Error in mousemoved callback: %s\n", err_msg(catch));
     }
    }
 
    if (event.type == SDL_EVENT_MOUSE_WHEEL && bound(wheelmoved_sym, env)) {
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
      mouse_wheel_x += event.wheel.x;
      mouse_wheel_y += event.wheel.y;
      cell[ord(wheelmoved_args)+1] = num((int)event.wheel.x);
      cell[ord(cdr(wheelmoved_args))+1] = num((int)event.wheel.y);
      eval(wheelmoved_expr, env);
     } else {
-     printf("Error in wheelmoved callback: %s\n", err_msg(err));
+     printf("Error in wheelmoved callback: %s\n", err_msg(catch));
     }
    }
   }
 
   /* update callback */
   if (bound(update_sym, env)) {
-   if ((err = setjmp(jb)) == 0) {
+   if ((catch = setjmp(jb)) == 0) {
     Uint64 current_time = SDL_GetTicks();
     cell[ord(update_args)+1] = num((int)(current_time - last_time));
     last_time = current_time;
     eval(update_expr, env);
    } else {
-    printf("Error in update callback: %s\n", err_msg(err));
+    printf("Error in update callback: %s\n", err_msg(catch));
    }
   }
 
   /* draw callback */
   if (bound(draw_sym, env)) {
-   if ((err = setjmp(jb)) == 0) {
+   if ((catch = setjmp(jb)) == 0) {
     eval(draw_expr, env);
     SDL_RenderPresent(sdl_renderer);
    } else {
-    printf("Error in draw callback: %s\n", err_msg(err));
+    printf("Error in draw callback: %s\n", err_msg(catch));
    }
   }
 

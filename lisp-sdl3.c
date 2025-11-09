@@ -1190,7 +1190,7 @@ int stdin_ready() {
 
 /* entry point with Lisp initialization, error handling and REPL */
 int main(int argc, char **argv) {
-  int i, err;
+  int i, catch;
   printf("Lisp with SDL3 Graphics\n");
 
   /* Initialize SDL3 */
@@ -1262,7 +1262,7 @@ int main(int argc, char **argv) {
   if (fin && in[0]) {
     printf("Loading init file...");
     fflush(stdout);
-    if ((err = setjmp(jb)) == 0) {
+    if ((catch = setjmp(jb)) == 0) {
       while (fin) {
         gc();
         print(eval(*push(readlisp()), env));
@@ -1270,7 +1270,7 @@ int main(int argc, char **argv) {
     } else {
       while (fin)
         fclose(in[--fin]);
-      printf("\e[31;1mERR %d: %s\e[m", err, errors[err > 0 && err <= ERRORS ? err : 0]);
+      printf("\e[31;1mERR %d: %s\e[m", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
     }
     printf(" done\n");
   }
@@ -1346,8 +1346,8 @@ int main(int argc, char **argv) {
       char *end = ptr + strlen(ptr);
       see = '\n';
 
-      if ((err = setjmp(jb)) > 0) {
-        printf("\e[31;1mERR %d: %s\e[m\n", err, errors[err > 0 && err <= ERRORS ? err : 0]);
+      if ((catch = setjmp(jb)) > 0) {
+        printf("\e[31;1mERR %d: %s\e[m\n", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
       } else {
         L x = readlisp();
         /* Check for trailing characters */
@@ -1378,90 +1378,90 @@ int main(int argc, char **argv) {
         running = 0;
 
       if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           CAR(keypressed_args) = num(event.key.scancode);
           CAR(CDR(keypressed_args)) = event.key.repeat ? tru : nil;
           eval(keypressed_expr, env);
         } else {
-          printf("\e[31;1mError in keypressed: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in keypressed: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
 
       if (event.type == SDL_EVENT_KEY_UP && bound(keyreleased_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           CAR(keyreleased_args) = num(event.key.scancode);
           eval(keyreleased_expr, env);
         } else {
-          printf("\e[31;1mError in keyreleased: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in keyreleased: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
 
       if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && bound(mousepressed_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           CAR(mousepressed_args) = num((int)event.button.x);
           CAR(CDR(mousepressed_args)) = num((int)event.button.y);
           CAR(CDR(CDR(mousepressed_args))) = num(event.button.button);
           eval(mousepressed_expr, env);
         } else {
-          printf("\e[31;1mError in mousepressed: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in mousepressed: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
 
       if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && bound(mousereleased_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           CAR(mousereleased_args) = num((int)event.button.x);
           CAR(CDR(mousereleased_args)) = num((int)event.button.y);
           CAR(CDR(CDR(mousereleased_args))) = num(event.button.button);
           eval(mousereleased_expr, env);
         } else {
-          printf("\e[31;1mError in mousereleased: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in mousereleased: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
 
       if (event.type == SDL_EVENT_MOUSE_MOTION && bound(mousemoved_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           CAR(mousemoved_args) = num((int)event.motion.x);
           CAR(CDR(mousemoved_args)) = num((int)event.motion.y);
           CAR(CDR(CDR(mousemoved_args))) = num((int)event.motion.xrel);
           CAR(CDR(CDR(CDR(mousemoved_args)))) = num((int)event.motion.yrel);
           eval(mousemoved_expr, env);
         } else {
-          printf("\e[31;1mError in mousemoved: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in mousemoved: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
 
       if (event.type == SDL_EVENT_MOUSE_WHEEL && bound(wheelmoved_sym, env)) {
-        if ((err = setjmp(jb)) == 0) {
+        if ((catch = setjmp(jb)) == 0) {
           mouse_wheel_x += event.wheel.x;
           mouse_wheel_y += event.wheel.y;
           CAR(wheelmoved_args) = num((int)event.wheel.x);
           CAR(CDR(wheelmoved_args)) = num((int)event.wheel.y);
           eval(wheelmoved_expr, env);
         } else {
-          printf("\e[31;1mError in wheelmoved: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+          printf("\e[31;1mError in wheelmoved: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
         }
       }
     }
 
     /* Update callback */
     if (bound(update_sym, env)) {
-      if ((err = setjmp(jb)) == 0) {
+      if ((catch = setjmp(jb)) == 0) {
         Uint64 current_time = SDL_GetTicks();
         CAR(update_args) = num((int)(current_time - last_time));
         last_time = current_time;
         eval(update_expr, env);
       } else {
-        printf("\e[31;1mError in update: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        printf("\e[31;1mError in update: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
       }
     }
 
     /* Draw callback */
     if (bound(draw_sym, env)) {
-      if ((err = setjmp(jb)) == 0) {
+      if ((catch = setjmp(jb)) == 0) {
         eval(draw_expr, env);
         SDL_RenderPresent(sdl_renderer);
       } else {
-        printf("\e[31;1mError in draw: %s\e[m\n", errors[err > 0 && err <= ERRORS ? err : 0]);
+        printf("\e[31;1mError in draw: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
       }
     }
 
