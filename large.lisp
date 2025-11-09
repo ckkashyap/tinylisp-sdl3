@@ -169,5 +169,9 @@
             ((eq? (type f) 7) (cons 'macro (cons (car f) (cons (cdr f) ()))))
             (#t  f))))
 
-(define defmacro (macro (f v x) (list 'define f (list 'macro v x))))
-(defmacro defun (f v x) (list 'define f (list 'lambda v x)))
+(define defmacro (macro (name params . body)
+                   `(define ,name (macro ,params (begin . body)))))
+
+(defmacro defun (name params . body)
+  `(define ,name (lambda ,params
+                   (begin . body))))

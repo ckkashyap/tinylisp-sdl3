@@ -334,136 +334,296 @@ I more(L t) {
 }
 
 /*----------------------------------------------------------------------------*\
- |      READ                                                                  |
+ |      BATCH READ                                                           |
+ |      read_b -> parse_b -> scan_b -> get_b                                 |
+ |      unbalanced '(' is an error                                           |
 \*----------------------------------------------------------------------------*/
 
-/* the file(s) we are reading or fin=0 when reading from the terminal */
-I fin = 0;
-FILE *in[10];
+typedef struct {
+  FILE *f;
+  char see;
+  char buf[256];
+} BatchInput;
 
-/* specify an input file to parse and try to open it */
-FILE *input(const char *s) {
-  return fin <= 9 && (in[fin] = fopen(s, "r")) ? in[fin++] : NULL;
+/* return the character we see, advance to the next character */
+char get_b(BatchInput *in) {
+  int look = in->see;
+  in->see = getc(in->f);                        /* read a character */
+  if (in->see == EOF)
+    in->see = '\0';                             /* pretend we see a null character at eof */
+  return look;                                  /* return the previous character we were looking at */
 }
 
-/* tokenization buffer, the next character we're looking at, the readline line, prompt and input file */
-char buf[256], see = '\n', *ptr = "", *line = NULL, ps[20];
+bool white(char see) {
+  return see > 0 && see <= ' ';
+}
+
+/* tokenize into in->buf[], return first character of in->buf[] */
+char scan_b(BatchInput *in) {
+  I i = 0;
+  while (white(in->see) || in->see == ';')      /* skip white space and ;-comments */
+    if (get_b(in) == ';')
+      while (in->see != '\n' && in->see != '\0') /* skip ;-comment until newline */
+        get_b(in);
+  if (in->see == '\0') {
+    /* do nothing */
+  }
+  else if (in->see == '"') {                    /* tokenize a quoted string */
+    do {
+      in->buf[i++] = get_b(in);
+      while (in->see == '\\' && i < sizeof(in->buf)-1) {
+        static const char *abtnvfr = "abtnvfr"; /* \a, \b, \t, \n, \v, \f, \r escape codes */
+        const char *esc;
+        get_b(in);
+        esc = strchr(abtnvfr, in->see);
+        in->buf[i++] = esc ? esc-abtnvfr+7 : in->see;
+        get_b(in);
+      }
+    } while (i < sizeof(in->buf)-1 && in->see != '"' && in->see != '\n');
+    if (get_b(in) != '"')
+      ERR(8, "missing \" ");
+  }
+  else if (in->see == '(' || in->see == ')' || in->see == '\'' ||
+           in->see == '`' || in->see == ',') {
+    in->buf[i++] = get_b(in);                   /* ( ) ' ` , are single-character tokens */
+  }
+  else {                                        /* tokenize a symbol or a number */
+    do {
+      in->buf[i++] = get_b(in);
+    } while (i < sizeof(in->buf)-1 && !white(in->see)
+        && in->see != '(' && in->see != ')' && in->see != '\0');
+  }
+  in->buf[i] = '\0';
+  return *in->buf;                              /* return first character of token in buf[] */
+}
+
+/* return the Lisp expression parsed and read from input */
+/* on EOF, return nil */
+L parse_b(BatchInput *in);
+
+L read_b2(BatchInput *in) {
+  return (scan_b(in) == '\0') ? nil : parse_b(in);
+}
+
+L read_b(FILE *f) {
+  BatchInput in; in.f = f, in.see = ' ', *in.buf = '\0';
+  if (scan_b(&in) == '\0') return nil;
+  return parse_b(&in);
+}
+
+/* return a parsed Lisp list */
+L list_b(BatchInput *in) {
+  L *p = push(nil);                             /* push the new list to protect it from getting GC'ed */
+  while (scan_b(in) != ')') {
+    if (*in->buf == '\0')
+      ERR(8, "unexpected EOF in list");
+    if (*in->buf == '.' && !in->buf[1]) {       /* parse list with dot pair ( <expr> ... <expr> . <expr> ) */
+      *p = read_b2(in);
+      if (scan_b(in) != ')')
+        ERR(8, "expecting ) ");
+      break;
+    }
+    *p = cons(parse_b(in), nil);                /* add parsed expression to end of the list by replacing the last nil */
+    p = &CDR(*p);                               /* p points to the cdr nil to replace it with the rest of the list */
+  }
+  return pop();
+}
+
+/* return a list/quote-converted Lisp expression (backquote aka. backtick) */
+L tick_b(BatchInput *in) {
+  L *p;
+  if (*in->buf == ',')
+    return read_b2(in);                         /* parse and return Lisp expression */
+  if (*in->buf != '(')
+    return cons(atom("quote"), cons(parse_b(in), nil)); /* parse expression and return (quote <expr>) */
+  p = push(cons(atom("list"), nil));
+  while (scan_b(in) != ')') {
+    if (*in->buf == '\0')
+      ERR(8, "unexpected EOF in backtick");
+    p = &CDR(*p);                               /* p points to the cdr nil to replace it with the rest of the list */
+    if (*in->buf == '.' && !in->buf[1]) {       /* tick list with dot pair ( <expr> ... <expr> . <expr> ) */
+      *p = read_b2(in);                         /* read expression to replace the last nil at the end of the list */
+      if (scan_b(in) != ')')
+        ERR(8, "expecting ) ");
+      break;
+    }
+    *p = cons(tick_b(in), nil);                 /* add ticked expression to end of the list by replacing the last nil */
+  }
+  return pop();                                 /* return (list <expr> ... <expr>) */
+}
+
+/* return a parsed Lisp expression */
+L parse_b(BatchInput *in) {
+  L x; I i;
+  switch (*in->buf) {
+    case '\0': return ERR(8, "unexpected EOF");
+    case '(':  return list_b(in);               /* if token is ( then parse a list */
+    case '\'': return cons(atom("quote"), cons(read_b2(in), nil)); /* if token is ' then quote an expression */
+    case '`':  scan_b(in); return tick_b(in);   /* if token is a ` then list/quote-convert an expression */
+    case '"':  return string(in->buf+1);        /* if token is a string, then return a new string */
+    case ')':  return ERR(8, "unexpected ) ");
+  }
+  if (sscanf(in->buf, "%lg%n", &x, &i) > 0 && !in->buf[i])
+    return x;                                   /* return a number, including inf, -inf and nan */
+  return atom(in->buf);                         /* return an atom (a symbol) */
+}
+
+/*----------------------------------------------------------------------------*\
+ |      INTERACTIVE READ                                                     |
+ |      read_i -> parse_i -> scan_i -> get_i                                 |
+ |      unbalanced '(' is not an error                                       |
+\*----------------------------------------------------------------------------*/
 
 /* Readline callback state for non-blocking REPL */
 bool running = true;
 char *pending_line = NULL;
 bool line_ready = false;
+char ps[20];
+char *accumulated_input = NULL;
+
+typedef struct {
+  const char *ptr;
+  char see;
+  char buf[256];
+  bool *incomplete;
+} InteractiveInput;
 
 /* return the character we see, advance to the next character */
-char get() {
-  int c, look = see;
-  if (fin) {                                    /* if reading from a file */
-    see = c = getc(in[fin-1]);                  /* read a character */
-    if (c == EOF) {
-      fclose(in[--fin]);                        /* if end of file, then close the file */
-      see = '\n';                               /* pretend we see a newline at eof */
-    }
-  }
-  else {
-    if (!(see = *ptr++))                        /* look at the next character in the readline line */
-      see = '\n';                               /* but when it is \0, replace it with a newline \n */
+char get_i(InteractiveInput *in) {
+  int look = in->see;
+  if (*in->ptr == '\0') {
+    in->see = '\0';
+  } else {
+    in->see = *in->ptr++;                       /* look at the next character in the readline line */
   }
   return look;                                  /* return the previous character we were looking at */
 }
 
-/* return nonzero if we are looking at character c, ' ' means any white space */
-I seeing(char c) {
-  return c == ' ' ? see > 0 && see <= c : see == c;
-}
-
-/* tokenize into buf[], return first character of buf[] */
-char scan() {
+/* tokenize into in->buf[], return first character of in->buf[] */
+char scan_i(InteractiveInput *in) {
   I i = 0;
-  while (seeing(' ') || seeing(';'))            /* skip white space and ;-comments */
-    if (get() == ';')
-      while (!seeing('\n'))                     /* skip ;-comment until newline */
-        get();
-  if (seeing('"')) {                            /* tokenize a quoted string */
+  while ((white(in->see) || in->see == ';') && in->see != '\0') /* skip white space and ;-comments */
+    if (get_i(in) == ';')
+      while (in->see != '\n' && in->see != '\0') /* skip ;-comment until newline */
+        get_i(in);
+  if (in->see == '\0') {
+    /* do nothing */
+  }
+  else if (in->see == '"') {                    /* tokenize a quoted string */
     do {
-      buf[i++] = get();
-      while (seeing('\\') && i < sizeof(buf)-1) {
+      in->buf[i++] = get_i(in);
+      while (in->see == '\\' && i < sizeof(in->buf)-1) {
         static const char *abtnvfr = "abtnvfr"; /* \a, \b, \t, \n, \v, \f, \r escape codes */
         const char *esc;
-        get();
-        esc = strchr(abtnvfr, see);
-        buf[i++] = esc ? esc-abtnvfr+7 : see;   /* replace \x with an escaped code or x itself */
-        get();
+        get_i(in);
+        esc = strchr(abtnvfr, in->see);
+        in->buf[i++] = esc ? esc-abtnvfr+7 : in->see;
+        get_i(in);
       }
-    } while (i < sizeof(buf)-1 && !seeing('"') && !seeing('\n'));
-    if (get() != '"')
+    } while (i < sizeof(in->buf)-1 && in->see != '"' && in->see != '\n' && in->see != '\0');
+    if (get_i(in) != '"')
       ERR(8, "missing \" ");
   }
-  else if (seeing('(') || seeing(')') || seeing('\'') || seeing('`') || seeing(','))
-    buf[i++] = get();                           /* ( ) ' ` , are single-character tokens */
-  else                                          /* tokenize a symbol or a number */
-    do buf[i++] = get();
-    while (i < sizeof(buf)-1 && !seeing('(') && !seeing(')') && !seeing(' '));
-  buf[i] = 0;
-  return *buf;                                  /* return first character of token in buf[] */
+  else if (in->see == '(' || in->see == ')' || in->see == '\'' ||
+           in->see == '`' || in->see == ',') {
+    in->buf[i++] = get_i(in);                   /* ( ) ' ` , are single-character tokens */
+  }
+  else {                                        /* tokenize a symbol or a number */
+    do {
+      in->buf[i++] = get_i(in);
+    } while (i < sizeof(in->buf)-1 && !white(in->see)
+        && in->see != '(' && in->see != ')' && in->see != '\0');
+  }
+  in->buf[i] = '\0';
+  return *in->buf;                              /* return first character of token in buf[] */
 }
 
 /* return the Lisp expression parsed and read from input */
-L parse();
-L readlisp() {
-  scan();
-  return parse();
+/* if incomplete, set *in->incomplete and return nil */
+L parse_i(InteractiveInput *in);
+
+L read_i2(InteractiveInput *in) {
+  return (scan_i(in) == '\0') ? nil : parse_i(in);
+}
+
+L read_i(const char *line, bool *incomplete) {
+  InteractiveInput in; in.ptr = line; in.see = ' '; *in.buf = '\0'; in.incomplete = incomplete;
+  return read_i2(&in);
 }
 
 /* return a parsed Lisp list */
-L list() {
+L list_i(InteractiveInput *in) {
   L *p = push(nil);                             /* push the new list to protect it from getting GC'ed */
-  while (scan() != ')') {
-    if (*buf == '.' && !buf[1]) {               /* parse list with dot pair ( <expr> ... <expr> . <expr> ) */
-      *p = readlisp();                          /* read expression to replace the last nil at the end of the list */
-      if (scan() != ')')
-        ERR(8, "expecing ) ");
+  while (scan_i(in) != ')') {
+    if (*in->buf == '\0') {                     /* the list isn't ready yet */
+      *in->incomplete = true;
+      pop();                                    /* we'll try again after the next line of input */
+      return nil;
+    }
+    if (*in->buf == '.' && !in->buf[1]) {       /* parse list with dot pair ( <expr> ... <expr> . <expr> ) */
+      *p = read_i2(in);                         /* read expression to replace the last nil at the end of the list */
+      if (scan_i(in) != ')') {
+        if (*in->buf == '\0') {                 /* either the final expr after the dot or ')' isn't typed in yet */
+          *in->incomplete = true;
+          pop();                                /* we'll try again after the next line of input */
+          return nil;
+        }
+        ERR(8, "expecting ) ");
+      }
       break;
     }
-    *p = cons(parse(), nil);                    /* add parsed expression to end of the list by replacing the last nil */
+    *p = cons(parse_i(in), nil);                /* add parsed expression to end of the list by replacing the last nil */
     p = &CDR(*p);                               /* p points to the cdr nil to replace it with the rest of the list */
   }
   return pop();                                 /* pop list and return it */
 }
 
 /* return a list/quote-converted Lisp expression (backquote aka. backtick) */
-L tick() {
+L tick_i(InteractiveInput *in) {
   L *p;
-  if (*buf == ',')
-    return readlisp();                          /* parse and return Lisp expression */
-  if (*buf != '(')
-    return cons(atom("quote"), cons(parse(), nil)); /* parse expression and return (quote <expr>) */
+  if (*in->buf == ',')
+    return read_i2(in);                         /* parse and return Lisp expression */
+  if (*in->buf != '(')
+    return cons(atom("quote"), cons(parse_i(in), nil)); /* parse expression and return (quote <expr>) */
   p = push(cons(atom("list"), nil));
-  while (scan() != ')') {
+  while (scan_i(in) != ')') {
+    if (*in->buf == '\0') {                     /* the list isn't ready yet */
+      *in->incomplete = true;
+      pop();                                    /* we'll try again after the next line of input */
+      return nil;
+    }
     p = &CDR(*p);                               /* p points to the cdr nil to replace it with the rest of the list */
-    if (*buf == '.' && !buf[1]) {               /* tick list with dot pair ( <expr> ... <expr> . <expr> ) */
-      *p = readlisp();                          /* read expression to replace the last nil at the end of the list */
-      if (scan() != ')')
-        ERR(8, "expecing ) ");
+    if (*in->buf == '.' && !in->buf[1]) {
+      *p = read_i2(in);                         /* read expression to replace the last nil at the end of the list */
+      if (scan_i(in) != ')') {
+        if (*in->buf == '\0') {                 /* either the final expr after the dot or ')' isn't typed in yet */
+          *in->incomplete = true;
+          pop();                                /* we'll try again after the next line of input */
+          return nil;
+        }
+        ERR(8, "expecting ) ");
+      }
       break;
     }
-    *p = cons(tick(), nil);                     /* add ticked expression to end of the list by replacing the last nil */
+    *p = cons(tick_i(in), nil);                 /* add ticked expression to end of the list by replacing the last nil */
   }
   return pop();                                 /* return (list <expr> ... <expr>) */
 }
 
 /* return a parsed Lisp expression */
-L parse() {
+L parse_i(InteractiveInput *in) {
   L x; I i;
-  switch (*buf) {
-    case '(':  return list();                   /* if token is ( then parse a list */
-    case '\'': return cons(atom("quote"), cons(readlisp(), nil)); /* if token is ' then quote an expression */
-    case '`':  scan(); return tick();           /* if token is a ` then list/quote-convert an expression */
-    case '"':  return string(buf+1);            /* if token is a string, then return a new string */
+  switch (*in->buf) {
+    case '\0': *in->incomplete = true; return nil;
+    case '(':  return list_i(in);               /* if token is ( then parse a list */
+    case '\'': return cons(atom("quote"), cons(read_i2(in), nil)); /* if token is ' then quote an expression */
+    case '`':  scan_i(in); return tick_i(in);   /* if token is a ` then list/quote-convert an expression */
+    case '"':  return string(in->buf+1);        /* if token is a string, then return a new string */
     case ')':  return ERR(8, "unexpected ) ");
   }
-  if (sscanf(buf, "%lg%n", &x, &i) > 0 && !buf[i])
+  if (sscanf(in->buf, "%lg%n", &x, &i) > 0 && !in->buf[i])
     return x;                                   /* return a number, including inf, -inf and nan */
-  return atom(buf);                             /* return an atom (a symbol) */
+  return atom(in->buf);                         /* return an atom (a symbol) */
 }
 
 /*----------------------------------------------------------------------------*\
@@ -681,12 +841,9 @@ L f_setcdr(L t, L *_) {
 }
 
 L f_read(L t, L *_) {
-  L x; char c = see;
-  see = ' ';
+  // TODO
   *ps = 0;
-  x = readlisp();
-  see = c;
-  return x;
+  return nil;
 }
 
 void print(L);
@@ -716,6 +873,7 @@ L f_write(L t, L *_) {
 
 L f_string(L t, L *_) {
   I i, j; L s;
+  char tmp[256];
   for (i = 0, s = t; T(s) != NIL; s = cdr(s)) {
     L x = car(s);
     if ((T(x) & ~(ATOM^STRG)) == ATOM)
@@ -724,7 +882,7 @@ L f_string(L t, L *_) {
       for (; T(x) == CONS; x = cdr(x))
         ++i;
     else if (x == x) /* false when x is NaN i.e. a tagged Lisp expression */
-      i += snprintf(buf, sizeof(buf), FLOAT, x);
+      i += snprintf(tmp, sizeof(tmp), FLOAT, x);
   }
   i = j = alloc(i);
   for (s = t; T(s) != NIL; s = cdr(s)) {
@@ -735,14 +893,17 @@ L f_string(L t, L *_) {
       for (; T(x) == CONS; x = cdr(x))
         *(A+i++) = car(x);
     else if (x == x) /* false when x is NaN i.e. a tagged Lisp expression */
-      i += snprintf(A+i, sizeof(buf), FLOAT, x);
+      i += snprintf(A+i, sizeof(tmp), FLOAT, x);
   }
   return box(STRG, j);
 }
 
+void load(const char *filename);
 L f_load(L t, L *e) {
   L x = f_string(t, e);
-  return input(A+ord(x)) ? cons(atom("load"), cons(x, nil)) : ERR(5, "cannot read %s ", A+ord(x));
+  const char *filename = A+ord(x);
+  load(filename);
+  return nil;
 }
 
 L f_trace(L t, L *e) {
@@ -1189,6 +1350,36 @@ int stdin_ready() {
   return result > 0 && FD_ISSET(STDIN_FILENO, &readfds);
 }
 
+void load(const char *filename) {
+  FILE *f = fopen(filename, "r");
+  if (!f) {
+    printf("\e[31;1mError: cannot open %s\e[m\n", filename);
+    return;
+  }
+  jmp_buf saved_jb;
+  memcpy(saved_jb, jb, sizeof(jmp_buf));
+  int catch;
+  if ((catch = setjmp(jb)) == 0) {
+    while (!feof(f)) {
+      L expr = read_b(f);
+      push(expr);
+      eval(cell[sp], env);
+      pop();
+    }
+  } else {
+    printf("\e[31;1mERR %d: %s\e[m", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+  }
+  fclose(f);
+  memcpy(jb, saved_jb, sizeof(jmp_buf));
+}
+
+void noisy_load(const char *filename) {
+  printf("Loading %s...", filename);
+  fflush(stdout);
+  load(filename);
+  printf(" done\n");
+}
+
 /* entry point with Lisp initialization, error handling and REPL */
 int main(int argc, char **argv) {
   int i, catch;
@@ -1246,7 +1437,6 @@ int main(int argc, char **argv) {
   printf("  (define wheelmoved (lambda (x y) ...))\n\n");
 
   /* Initialize Lisp environment */
-  input(argc > 1 ? argv[1] : "large.lisp");      /* set input source to load when available */
   out = stdout;
   if (setjmp(jb))                               /* if something goes wrong before REPL, it is fatal */
     abort();
@@ -1259,28 +1449,13 @@ int main(int argc, char **argv) {
   using_history();
   BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
 
-  /* Load init file if available */
-  if (fin && in[0]) {
-    printf("Loading init file...");
-    fflush(stdout);
-    if ((catch = setjmp(jb)) == 0) {
-      while (fin) {
-        gc();
-        print(eval(*push(readlisp()), env));
-      }
-    } else {
-      while (fin)
-        fclose(in[--fin]);
-      printf("\e[31;1mERR %d: %s\e[m", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
-    }
-    printf(" done\n");
-  }
+  /* Load init file */
+  noisy_load("large.lisp");
 
-  /* Set up non-blocking REPL */
-  snprintf(ps, sizeof(ps), "> ");
-  printf("\nLisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.\n");
-  printf("You can also use the SDL3 window for graphics.\n\n");
-  rl_callback_handler_install(ps, readline_callback);
+  /* Load all command-line files */
+  for (i = 1; i < argc; ++i) {
+    noisy_load(argv[i]);
+  }
 
   /* Callback symbols */
   L draw_sym = atom("draw");
@@ -1324,6 +1499,12 @@ int main(int argc, char **argv) {
   L wheelmoved_expr = cons(wheelmoved_sym, wheelmoved_args);
   env = pair(atom("__wheelmoved_expr__"), wheelmoved_expr, env);
 
+  /* Set up non-blocking REPL */
+  snprintf(ps, sizeof(ps), "> ");
+  printf("\nLisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.\n");
+  printf("You can also use the SDL3 window for graphics.\n\n");
+  rl_callback_handler_install(ps, readline_callback);
+
   /* Main event loop */
   SDL_Event event;
   Uint64 last_time = SDL_GetTicks();
@@ -1342,30 +1523,44 @@ int main(int argc, char **argv) {
       /* Remove handler to prevent prompt during output */
       rl_callback_handler_remove();
 
-      ptr = pending_line;
-      char *end = ptr + strlen(ptr);
-      see = '\n';
-
-      if ((catch = setjmp(jb)) > 0) {
-        printf("\e[31;1mERR %d: %s\e[m\n", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+      /* Accumulate input if we're in multi-line mode */
+      if (accumulated_input) {
+        size_t old_len = strlen(accumulated_input);
+        size_t new_len = strlen(pending_line);
+        accumulated_input = realloc(accumulated_input, old_len + new_len + 2);
+        accumulated_input[old_len] = '\n';
+        strcpy(accumulated_input + old_len + 1, pending_line);
       } else {
-        L x = readlisp();
-        /* Check for trailing characters */
-        while (*ptr == ' ' || *ptr == '\t') ptr++;
-        if (*ptr && *ptr != '\n') {
-          printf("Error: Trailing characters: \"%s\"; only one expression per line\n", ptr);
-        } else {
-          print(eval(x, env));
-          printf("\n");
-        }
+        accumulated_input = strdup(pending_line);
       }
 
       free(pending_line);
       pending_line = NULL;
 
-      /* Reinstall handler to show prompt */
+      /* Try to parse the accumulated input */
+      bool incomplete = false;
+      if ((catch = setjmp(jb)) > 0) {
+        printf("\e[31;1mERR %d: %s\e[m\n", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+        free(accumulated_input);
+        accumulated_input = NULL;
+        incomplete = false;
+      } else {
+        L x = read_i(accumulated_input, &incomplete);
+        if (!incomplete) {
+          if (T(x) != NIL) {
+            printf("\r");
+            rl_clear_visible_line();
+            print(eval(x, env));
+            printf("\n");
+          }
+          free(accumulated_input);
+          accumulated_input = NULL;
+        }
+      }
+
+      /* Reinstall handler with appropriate prompt */
       fflush(stdout);
-      rl_callback_handler_install("> ", readline_callback);
+      rl_callback_handler_install(incomplete ? "... " : "> ", readline_callback);
     }
 
     /* Reset mouse wheel state */
