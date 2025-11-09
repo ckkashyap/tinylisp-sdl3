@@ -86,7 +86,7 @@ jmp_buf jb;
 
 /* report and throw an exception */
 #define ERR(n, ...) (fprintf(stderr, __VA_ARGS__), err(n))
-L err(int n) { longjmp(jb, n); }
+__attribute__((noreturn)) L err(int n) { longjmp(jb, n); }
 
 #define ERRORS 8
 const char *errors[ERRORS+1] = {
@@ -760,11 +760,11 @@ L f_catch(L t, L *e) {
   return x;
 }
 
-L f_throw(L t, L *_) {
+__attribute__((noreturn)) L f_throw(L t, L *_) {
   longjmp(jb, num(car(t)));
 }
 
-L f_quit(L t, L *_) {
+__attribute__((noreturn)) L f_quit(L t, L *_) {
   exit(0);
 }
 
