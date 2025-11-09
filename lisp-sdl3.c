@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>             /* int64_t, uint64_t, uint32_t (or we can use e.g. unsigned long long instead) */
+#include <stdbool.h>
 #include <string.h>
 #include <setjmp.h>
 
@@ -350,7 +351,7 @@ char buf[256], see = '\n', *ptr = "", *line = NULL, ps[20];
 
 /* Readline callback state for non-blocking REPL */
 char *pending_line = NULL;
-int line_ready = 0;
+bool line_ready = false;
 
 /* return the character we see, advance to the next character */
 char get() {
@@ -1161,7 +1162,7 @@ void readline_callback(char *input_line) {
   if (input_line == NULL) {
     /* EOF (ctrl+d) */
     pending_line = NULL;
-    line_ready = 0;
+    line_ready = false;
     return;
   }
 
@@ -1170,7 +1171,7 @@ void readline_callback(char *input_line) {
   }
 
   pending_line = input_line;
-  line_ready = 1;
+  line_ready = true;
 }
 
 /* check if stdin has data ready to read */
@@ -1325,7 +1326,7 @@ int main(int argc, char **argv) {
 
   /* Main event loop */
   SDL_Event event;
-  int running = 1;
+  bool running = true;
   Uint64 last_time = SDL_GetTicks();
 
   while (running) {
@@ -1337,7 +1338,7 @@ int main(int argc, char **argv) {
 
     /* Process a complete line if ready */
     if (line_ready && pending_line) {
-      line_ready = 0;
+      line_ready = false;
 
       /* Remove handler to prevent prompt during output */
       rl_callback_handler_remove();
@@ -1375,7 +1376,7 @@ int main(int argc, char **argv) {
     /* Process SDL events */
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_EVENT_QUIT)
-        running = 0;
+        running = false;
 
       if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
