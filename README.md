@@ -28,7 +28,7 @@ $ make
 # Run
 
 ```
-$ ./lisp
+$ ./lisp-sdl3
 ```
 
 You should see a second window open up with a black graphical canvas. The

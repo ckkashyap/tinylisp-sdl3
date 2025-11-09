@@ -1450,7 +1450,7 @@ int main(int argc, char **argv) {
   BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
 
   /* Load init file */
-  noisy_load("large.lisp");
+  noisy_load("init.lisp");
 
   /* Load all command-line files */
   for (i = 1; i < argc; ++i) {
