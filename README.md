@@ -43,3 +43,9 @@ Try typing this at the REPL:
   (color 255 0 0)
   (line 100 100 200 300))
 ```
+
+Longer demo:
+
+```
+(load "demo.lisp")
+```

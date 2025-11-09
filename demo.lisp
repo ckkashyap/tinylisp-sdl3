@@ -1,4 +1,4 @@
-; Input demo demonstrating keyboard and mouse input queries
+; Demo demonstrating drawing and keyboard/mouse queries
 
 (load-font 'DejaVuSans 20)
 
