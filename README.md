@@ -17,7 +17,7 @@ Only tested so far on Linux and Mac OS.
 * `SDL_ttf`
 
 Install these from the infrastructure for your OS (`apt`, `pacman`, `brew`,
-etc.)
+etc.) or build from source.
 
 # Compile
 
