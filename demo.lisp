@@ -1,7 +1,5 @@
 ; Demo demonstrating drawing and keyboard/mouse queries
 
-(load-font 'DejaVuSans 20)
-
 (def draw ()
   (color 30 30 40)
   (clear)

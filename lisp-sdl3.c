@@ -1410,6 +1410,7 @@ int main(int argc, char **argv) {
   }
 
   SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
+  current_font = TTF_OpenFont("DejaVuSans", 20);
 
   printf("Available graphics commands:\n");
   printf("  (clear)             - clear screen with current color\n");
