@@ -137,7 +137,7 @@ pacman -S make sdl3
 First install Xcode (`xcode-select --install`) and [Homebrew](https://brew.sh/). Then:
 
 ```
-brew install make sdl3 sdl3_ttf
+brew install sdl3 sdl3_ttf
 ```
 
 <tr>
