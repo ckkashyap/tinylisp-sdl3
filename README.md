@@ -77,7 +77,6 @@ Type Lisp expressions or '(quit)' to quit.
     (color 255 0 0)
     (line 100 100 200 300))
   ```
-
 2. Press enter
 
 
@@ -89,5 +88,4 @@ You can load code from files, including your own.
   ```
   (load "demo.lisp")
   ```
-
 2. You should see a screen with suggested next steps for handling input.
