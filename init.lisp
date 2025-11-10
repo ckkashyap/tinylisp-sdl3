@@ -178,6 +178,26 @@
                    (begin . body))))
 
 (mac when (expr . body)
+  `(if (not ,expr)
+     ()
+     . body))
+
+(mac unless (expr . body)
   `(if ,expr
-     (begin . body)
-     ()))
+     ()
+     . body))
+
+(mac global (name init)
+  `(define ,name ,init))
+
+(mac dolist (binding . body)
+  (let
+    (var (car binding))
+    (l (car (cdr binding)))
+    `(let
+       (_ ,l)
+       (,var ())
+       (while _
+         (setq ,var (car _))
+         (setq _ (cdr _))
+         . body))))

@@ -1012,6 +1012,7 @@ L f_text(L t, L *_) {
 
   if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
   const char *text_str = A+ord(text_atom);
+  if (!strlen(text_str)) return tru;
 
   SDL_Color text_color;
   text_color.r = current_r;
