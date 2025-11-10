@@ -29,6 +29,7 @@ All bugs found thus far have been my own. Tested on:
 1. Some C compiler. Compiles with [tcc](https://www.bellard.org/tcc).
 2. GNU `make`
 3. The following libraries
+  * `readline` with development files
   * `SDL3` with development files
   * `SDL_ttf` with development files
 

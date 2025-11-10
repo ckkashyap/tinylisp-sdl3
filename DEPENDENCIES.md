@@ -9,8 +9,9 @@ or upload it anywhere you find convenient.
 
 1. Get dev versions (with C header files) of [SDL3](https://www.libsdl.org/) and [SDL_ttf](https://wiki.libsdl.org/SDL3_ttf/FrontPage)
    and [SDL_ttf](https://wiki.libsdl.org/SDL3_ttf/FrontPage) packages.
-2. `git clone` locally
-3. `make`
+2. Get dev versions of the readline package.
+3. `git clone` locally
+4. `make`
 
 ### Development Packages
 
@@ -111,7 +112,7 @@ apt install make libsdl3-dev libsdl3-ttf-dev
 ### Arch Linux
 
 ```
-pacman -S make sdl3
+pacman -S make readline sdl3
 ```
 
 <table>
@@ -137,7 +138,7 @@ pacman -S make sdl3
 First install Xcode (`xcode-select --install`) and [Homebrew](https://brew.sh/). Then:
 
 ```
-brew install sdl3 sdl3_ttf
+brew install readline sdl3 sdl3_ttf
 ```
 
 <tr>
