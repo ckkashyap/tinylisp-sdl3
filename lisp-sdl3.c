@@ -1076,6 +1076,20 @@ L f_text_height(L t, L *_) {
   return num(h);
 }
 
+L f_window_set_title(L t, L *_) {
+   // Set the window title verbatim (expects valid UTF-8)
+   L text_atom = car(t);
+   if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+   const char *text_str = A+ord(text_atom);
+   if(! SDL_SetWindowTitle(sdl_window, text_str)) {
+     fprintf(stderr, "Error setting window title: %s\n", SDL_GetError());
+     return nil;
+   }
+
+   return tru;
+}
+
+
 L f_key_down(L t, L *_) {
   int scancode = (int)num(car(t));
   const bool *state = SDL_GetKeyboardState(NULL);
@@ -1183,6 +1197,7 @@ struct {
   {"mouse-button?", f_mouse_button,  NORMAL},   /* (mouse-button? btn) -- check mouse button state */
   {"mouse-wheel-x", f_mouse_wheel_x, NORMAL},   /* (mouse-wheel-x) -- get horizontal wheel movement */
   {"mouse-wheel-y", f_mouse_wheel_y, NORMAL},   /* (mouse-wheel-y) -- get vertical wheel movement */
+  {"window-set-title", f_window_set_title,  NORMAL}, /* (window-set-title string) set the window title to a string. */
   {0}
 };
 
@@ -1441,6 +1456,9 @@ int main(int argc, char **argv) {
   printf("  (define mousereleased (lambda (x y button) ...))\n");
   printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
   printf("  (define wheelmoved (lambda (x y) ...))\n\n");
+  printf("Application state:\n");
+  printf("  (window-set-title string)   - set the title of the window.");
+  printf("  (quit)                      - quit the program and close the window.\n\n");
 
   /* Initialize Lisp environment */
   out = stdout;

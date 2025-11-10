@@ -1,5 +1,7 @@
 ; Demo demonstrating drawing and keyboard/mouse queries
 
+(window-set-title "Lisp with SDL3 Graphics (Keyboard and Mouse Input Demo)")
+
 (def draw ()
   (color 30 30 40)
   (clear)
