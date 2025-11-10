@@ -26,8 +26,8 @@ All bugs found thus far have been my own. Tested on:
 
 # Prerequisites
 
-1. GNU `make`
-2. Some C compiler. Compiles with [tcc](https://www.bellard.org/tcc).
+1. Some C compiler. Compiles with [tcc](https://www.bellard.org/tcc).
+2. GNU `make`
 3. The following libraries
   * `SDL3` with development files
   * `SDL_ttf` with development files
