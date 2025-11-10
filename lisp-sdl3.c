@@ -1658,6 +1658,8 @@ int main(int argc, char **argv) {
     /* Draw callback */
     if (bound(draw_sym, env)) {
       if ((catch = setjmp(jb)) == 0) {
+        SDL_SetRenderDrawColor(sdl_renderer, 0,0,0, 0);
+        SDL_RenderClear(sdl_renderer);
         eval(draw_expr, env);
         SDL_RenderPresent(sdl_renderer);
       } else {
