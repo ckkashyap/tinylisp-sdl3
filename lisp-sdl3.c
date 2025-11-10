@@ -1076,6 +1076,15 @@ L f_text_height(L t, L *_) {
   return num(h);
 }
 
+L f_env_get_platform(L t, L *_) {
+    const char* platformRaw = SDL_GetPlatform();
+    if(platformRaw == 0)
+        return nil;
+    else
+        return string(platformRaw);
+}
+
+
 L f_window_set_title(L t, L *_) {
    // Set the window title verbatim (expects valid UTF-8)
    L text_atom = car(t);
@@ -1088,7 +1097,6 @@ L f_window_set_title(L t, L *_) {
 
    return tru;
 }
-
 
 L f_key_down(L t, L *_) {
   int scancode = (int)num(car(t));
@@ -1198,6 +1206,7 @@ struct {
   {"mouse-wheel-x", f_mouse_wheel_x, NORMAL},   /* (mouse-wheel-x) -- get horizontal wheel movement */
   {"mouse-wheel-y", f_mouse_wheel_y, NORMAL},   /* (mouse-wheel-y) -- get vertical wheel movement */
   {"window-set-title", f_window_set_title,  NORMAL}, /* (window-set-title string) set the window title to a string. */
+  {"get-platform", f_env_get_platform, NORMAL}, /* (get-platform) get the SDL3 platform string ("Windows", "macOS", "Linux", etc.) */
   {0}
 };
 
@@ -1457,7 +1466,8 @@ int main(int argc, char **argv) {
   printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
   printf("  (define wheelmoved (lambda (x y) ...))\n\n");
   printf("Application state:\n");
-  printf("  (window-set-title string)   - set the title of the window.");
+  printf("  (window-set-title string)   - set the title of the window.\n");
+  printf("  (get-platform)              - get the SDL3 platform string (\"Windows\", \"macOS\", \"Linux\", etc.)\n");
   printf("  (quit)                      - quit the program and close the window.\n\n");
 
   /* Initialize Lisp environment */
