@@ -1386,7 +1386,7 @@ void noisy_load(const char *filename) {
 /* entry point with Lisp initialization, error handling and REPL */
 int main(int argc, char **argv) {
   int i, catch;
-  printf("Lisp with SDL3 Graphics\n");
+  printf("Lisp with SDL3 Graphics\n\n");
 
   /* Initialize SDL3 */
   if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -1411,7 +1411,6 @@ int main(int argc, char **argv) {
 
   SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
 
-  printf("SDL3 initialized - window ready for graphics!\n");
   printf("Available graphics commands:\n");
   printf("  (clear)             - clear screen with current color\n");
   printf("  (color r g b [a])   - set drawing color (0-255)\n");
@@ -1507,8 +1506,7 @@ int main(int argc, char **argv) {
   BREAK_ON;                                     /* enable CTRL-C break to throw error 2 */
 
   snprintf(ps, sizeof(ps), "> ");
-  printf("\nLisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.\n");
-  printf("You can also use the SDL3 window for graphics.\n\n");
+  printf("\nType Lisp expressions or '(quit)' to quit.\n");
   rl_callback_handler_install(ps, readline_callback);
 
   /* Main event loop */
