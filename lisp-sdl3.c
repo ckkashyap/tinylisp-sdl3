@@ -86,13 +86,32 @@ I equ(L x, L y) { return *(uint64_t*)&x == *(uint64_t*)&y; }
 jmp_buf jb;
 
 /* report and throw an exception */
-#define ERR(n, ...) (fprintf(stderr, __VA_ARGS__), err(n))
-__attribute__((noreturn)) L err(int n) { longjmp(jb, n); }
+#define ERR(n, ...) (fprintf(stderr, __VA_ARGS__), err(n)) // TODO: err() is a system call? Is this right?
+__attribute__((noreturn)) L err(int n) { longjmp(jb, n); } // gcc extension?
+
 
 #define ERRORS 8
+typedef enum  {
+    ERR_UNKNOWN    = 0,
+    ERR_NOT_PAIR   = 1,
+    ERR_BREAK      = 2,
+    ERR_UNBOUND    = 3,
+    ERR_CANT_APPLY = 4,
+    ERR_ARGUMENTS  = 5,
+    ERR_STACK_OVER = 6,
+    ERR_OUT_OF_MEM = 7,
+    ERR_SYNTAX     = 8
+} LispRuntimeError;
+
 const char *errors[ERRORS+1] = {
   "", "not a pair", "break", "unbound symbol", "cannot apply", "arguments", "stack over", "out of memory", "syntax"
 };
+/* Using a macro does three things:
+ * 1. Shortens code
+ * 2. Reduces bug vulnerability from typos/regex accidents
+ * 3. Support compilers without inline support (tcc) */
+#define GET_ERR_STR(e) (errors[e > 0 && e <= ERRORS ? e : 0])
+
 
 /*----------------------------------------------------------------------------*\
  |      MEMORY MANAGEMENT AND RECYCLING                                       |
@@ -191,7 +210,7 @@ void compact() {
   }
 }
 
-/* garbage collector, returns number of free cells in the pool or raises err(7) */
+/* garbage collector, returns number of free cells in the pool or raises err((int) ERR_OUT_OF_MEM */
 I gc() {
   I i;
   BREAK_OFF;                                    /* do not interrupt GC */
@@ -204,7 +223,7 @@ I gc() {
   i = sweep();                                  /* remove unused cons cell pairs from the pool */
   compact();                                    /* remove unused atoms and strings from the heap */
   BREAK_ON;                                     /* enable interrupt */
-  return i ? i : err(7);
+  return i ? i : err((int) ERR_OUT_OF_MEM);
 }
 
 /* push x on the stack to protect it from being recycled, returns pointer to cell pair (e.g. to update the value) */
@@ -213,7 +232,7 @@ L *push(L x) {
   if (hp > (sp-1) << 3 || ALWAYS_GC) {          /* if insufficient stack space is available, then GC */
     gc();                                       /* GC */
     if (hp > (sp-1) << 3)                       /* GC did not free up heap space to enlarge the stack */
-      err(6);
+      err((int) ERR_STACK_OVER);
   }
   return &cell[sp];
 }
@@ -238,7 +257,7 @@ I alloc(I n) {
   if (hp+Z+n+1 > (sp-1) << 3 || ALWAYS_GC) {    /* if insufficient heap space is available, then GC */
     gc();                                       /* GC */
     if (hp+Z+n+1 > (sp-1) << 3)                 /* GC did not free up sufficient heap space */
-      err(6);
+      err((int) ERR_STACK_OVER);
   }
   *(I*)(A+hp) = n+1;                            /* store the size n+1 (data size + 1) in the size field */
   i = hp+Z;
@@ -300,20 +319,26 @@ L macro(L v, L x) {
 /* return the car of a cons/closure/macro pair; CAR(p) provides direct memory access */
 #define CAR(p) cell[ord(p)]
 L car(L p) {
-  return (T(p) & ~(CONS^MACR)) == CONS ? CAR(p) : err(1);
+  return (T(p) & ~(CONS^MACR)) == CONS ? CAR(p) : err((int) ERR_NOT_PAIR);
 }
 
 /* return the cdr of a cons/closure/macro pair; CDR(p) provides direct memory access */
 #define CDR(p) cell[ord(p)+1]
 L cdr(L p) {
-  return (T(p) & ~(CONS^MACR)) == CONS ? CDR(p) : err(1);
+  return (T(p) & ~(CONS^MACR)) == CONS ? CDR(p) : err((int) ERR_NOT_PAIR);
 }
 
 /* look up a symbol in an environment, returns its value */
 L assoc(L v, L e) {
   while (T(e) == CONS && !equ(v, car(car(e))))
     e = cdr(e);
-  return T(e) == CONS ? cdr(car(e)) : T(v) == ATOM ? ERR(3, "unbound %s ", A+ord(v)) : err(3);
+  L resolved;
+  if(T(e) == CONS) // found it.
+    resolved = cdr(car(e));
+  else // not found and we must error.
+    resolved = T(v) == ATOM ? ERR((int) ERR_UNBOUND, "unbound %s ", A+ord(v)) : err((int) ERR_UNBOUND);
+
+  return resolved;
 }
 
 /* check if a symbol is bound in an environment (for callback checking) */
@@ -381,7 +406,7 @@ char scan_b(BatchInput *in) {
       }
     } while (i < sizeof(in->buf)-1 && in->see != '"' && in->see != '\n');
     if (get_b(in) != '"')
-      ERR(8, "missing \" ");
+      ERR((int) ERR_SYNTAX, "missing \" ");
   }
   else if (in->see == '(' || in->see == ')' || in->see == '\'' ||
            in->see == '`' || in->see == ',') {
@@ -416,11 +441,11 @@ L list_b(BatchInput *in) {
   L *p = push(nil);                             /* push the new list to protect it from getting GC'ed */
   while (scan_b(in) != ')') {
     if (*in->buf == '\0')
-      ERR(8, "unexpected EOF in list");
+      ERR((int) ERR_SYNTAX, "unexpected EOF in list");
     if (*in->buf == '.' && !in->buf[1]) {       /* parse list with dot pair ( <expr> ... <expr> . <expr> ) */
       *p = read_b2(in);
       if (scan_b(in) != ')')
-        ERR(8, "expecting ) ");
+        ERR((int) ERR_SYNTAX, "expecting ) ");
       break;
     }
     *p = cons(parse_b(in), nil);                /* add parsed expression to end of the list by replacing the last nil */
@@ -439,12 +464,12 @@ L tick_b(BatchInput *in) {
   p = push(cons(atom("list"), nil));
   while (scan_b(in) != ')') {
     if (*in->buf == '\0')
-      ERR(8, "unexpected EOF in backtick");
+      ERR((int) ERR_SYNTAX, "unexpected EOF in backtick");
     p = &CDR(*p);                               /* p points to the cdr nil to replace it with the rest of the list */
     if (*in->buf == '.' && !in->buf[1]) {       /* tick list with dot pair ( <expr> ... <expr> . <expr> ) */
       *p = read_b2(in);                         /* read expression to replace the last nil at the end of the list */
       if (scan_b(in) != ')')
-        ERR(8, "expecting ) ");
+        ERR((int) ERR_SYNTAX, "expecting ) ");
       break;
     }
     *p = cons(tick_b(in), nil);                 /* add ticked expression to end of the list by replacing the last nil */
@@ -456,12 +481,12 @@ L tick_b(BatchInput *in) {
 L parse_b(BatchInput *in) {
   L x; I i;
   switch (*in->buf) {
-    case '\0': return ERR(8, "unexpected EOF");
+    case '\0': return ERR((int) ERR_SYNTAX, "unexpected EOF");
     case '(':  return list_b(in);               /* if token is ( then parse a list */
     case '\'': return cons(atom("quote"), cons(read_b2(in), nil)); /* if token is ' then quote an expression */
     case '`':  scan_b(in); return tick_b(in);   /* if token is a ` then list/quote-convert an expression */
     case '"':  return string(in->buf+1);        /* if token is a string, then return a new string */
-    case ')':  return ERR(8, "unexpected ) ");
+    case ')':  return ERR((int) ERR_SYNTAX, "unexpected ) ");
   }
   if (sscanf(in->buf, "%lg%n", &x, &i) > 0 && !in->buf[i])
     return x;                                   /* return a number, including inf, -inf and nan */
@@ -522,7 +547,7 @@ char scan_i(InteractiveInput *in) {
       }
     } while (i < sizeof(in->buf)-1 && in->see != '"' && in->see != '\n' && in->see != '\0');
     if (get_i(in) != '"')
-      ERR(8, "missing \" ");
+      ERR((int) ERR_SYNTAX, "missing \" ");
   }
   else if (in->see == '(' || in->see == ')' || in->see == '\'' ||
            in->see == '`' || in->see == ',') {
@@ -568,7 +593,7 @@ L list_i(InteractiveInput *in) {
           pop();                                /* we'll try again after the next line of input */
           return nil;
         }
-        ERR(8, "expecting ) ");
+        ERR((int) ERR_SYNTAX, "expecting ) ");
       }
       break;
     }
@@ -601,7 +626,7 @@ L tick_i(InteractiveInput *in) {
           pop();                                /* we'll try again after the next line of input */
           return nil;
         }
-        ERR(8, "expecting ) ");
+        ERR((int) ERR_SYNTAX, "expecting ) ");
       }
       break;
     }
@@ -619,7 +644,7 @@ L parse_i(InteractiveInput *in) {
     case '\'': return cons(atom("quote"), cons(read_i2(in), nil)); /* if token is ' then quote an expression */
     case '`':  scan_i(in); return tick_i(in);   /* if token is a ` then list/quote-convert an expression */
     case '"':  return string(in->buf+1);        /* if token is a string, then return a new string */
-    case ')':  return ERR(8, "unexpected ) ");
+    case ')':  return ERR((int) ERR_SYNTAX, "unexpected ) ");
   }
   if (sscanf(in->buf, "%lg%n", &x, &i) > 0 && !in->buf[i])
     return x;                                   /* return a number, including inf, -inf and nan */
@@ -827,17 +852,17 @@ L f_setq(L t, L *e) {
   L x = eval(car(cdr(t)), *e), v = car(t), d = *e;
   while (T(d) == CONS && !equ(v, car(car(d))))
     d = cdr(d);
-  return T(d) == CONS ? CDR(car(d)) = x : T(v) == ATOM ? ERR(3, "unbound %s ", A+ord(v)) : err(3);
+  return T(d) == CONS ? CDR(car(d)) = x : T(v) == ATOM ? ERR(3, "unbound %s ", A+ord(v)) : err((int) ERR_UNBOUND);
 }
 
 L f_setcar(L t, L *_) {
   L p = car(t);
-  return T(p) == CONS ? CAR(p) = car(cdr(t)) : err(1);
+  return T(p) == CONS ? CAR(p) = car(cdr(t)) : err((int) ERR_NOT_PAIR);
 }
 
 L f_setcdr(L t, L *_) {
   L p = car(t);
-  return T(p) == CONS ? CDR(p) = car(cdr(t)) : err(1);
+  return T(p) == CONS ? CDR(p) = car(cdr(t)) : err((int) ERR_NOT_PAIR);
 }
 
 L f_read(L t, L *_) {
@@ -987,7 +1012,7 @@ L f_load_font(L t, L *_) {
   L filename = car(t);
   L ptsize = car(cdr(t));
 
-  if (T(filename) != ATOM && T(filename) != STRG) return err(3);
+  if (T(filename) != ATOM && T(filename) != STRG) return err((int) ERR_UNBOUND);
 
   if (current_font) {
     TTF_CloseFont(current_font);
@@ -1010,7 +1035,7 @@ L f_text(L t, L *_) {
   float y = num(car(cdr(t)));
   L text_atom = car(cdr(cdr(t)));
 
-  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
   const char *text_str = A+ord(text_atom);
   if (!strlen(text_str)) return tru;
 
@@ -1048,7 +1073,7 @@ L f_text_width(L t, L *_) {
   if (!current_font) return num(0);
 
   L text_atom = car(t);
-  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
   const char *text_str = A+ord(text_atom);
 
   int w = 0, h = 0;
@@ -1064,7 +1089,7 @@ L f_text_height(L t, L *_) {
   if (!current_font) return num(0);
 
   L text_atom = car(t);
-  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+  if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
   const char *text_str = A+ord(text_atom);
 
   int w = 0, h = 0;
@@ -1079,7 +1104,7 @@ L f_text_height(L t, L *_) {
 L f_window_set_title(L t, L *_) {
    // Set the window title verbatim (expects valid UTF-8)
    L text_atom = car(t);
-   if (T(text_atom) != ATOM && T(text_atom) != STRG) return err(3);
+   if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
    const char *text_str = A+ord(text_atom);
    if(! SDL_SetWindowTitle(sdl_window, text_str)) {
      fprintf(stderr, "Error setting window title: %s\n", SDL_GetError());
@@ -1262,7 +1287,7 @@ L eval(L x, L e) {
           x = cdr(x);
         }
         if (T(v) == CONS)                       /* error if insufficient actual arguments x are provided */
-          err(5);
+          err((int) ERR_ARGUMENTS);
       }
       else if (T(x) == CONS)                    /* if more arguments x are provided then evaluate them all */
         x = evlis(x, e);
@@ -1282,13 +1307,13 @@ L eval(L x, L e) {
         x = cdr(x);
       }
       if (T(v) == CONS)                         /* error if insufficient actual arguments x are provided */
-        err(5);
+        err((int) ERR_ARGUMENTS);
       if (T(v) != NIL)                          /* if last parameter v is after a dot (... . v) then bind it to x */
         *d = pair(v, x, *d);
       x = *y = eval(cdr(*f), *d);               /* evaluated body of the macro to evaluate next, put in *y to protect */
     }
     else
-      err(4);                                   /* if f is not a closure or macro, then we cannot apply it */
+      err((int) ERR_CANT_APPLY);                /* if f is not a closure or macro, then we cannot apply it */
     if (tr)                                     /* if tracing is enabled then display evaluation step w => x */
       trace(w, x);
   }
@@ -1386,7 +1411,7 @@ void load(const char *filename) {
       pop();
     }
   } else {
-    printf("\e[31;1mERR %d: %s\e[m", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+    printf("\e[31;1mERR %d: %s\e[m", catch, GET_ERR_STR(catch));
   }
   fclose(f);
   memcpy(jb, saved_jb, sizeof(jmp_buf));
@@ -1564,7 +1589,7 @@ int main(int argc, char **argv) {
       /* Try to parse the accumulated input */
       bool incomplete = false;
       if ((catch = setjmp(jb)) > 0) {
-        printf("\e[31;1mERR %d: %s\e[m\n", catch, errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+        printf("\e[31;1mERR %d: %s\e[m\n", catch, GET_ERR_STR(catch));
         free(accumulated_input);
         accumulated_input = NULL;
         incomplete = false;
@@ -1602,7 +1627,7 @@ int main(int argc, char **argv) {
           CAR(CDR(keypressed_args)) = event.key.repeat ? tru : nil;
           eval(keypressed_expr, env);
         } else {
-          printf("\e[31;1mError in keypressed: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in keypressed: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
 
@@ -1611,7 +1636,7 @@ int main(int argc, char **argv) {
           CAR(keyreleased_args) = num(event.key.scancode);
           eval(keyreleased_expr, env);
         } else {
-          printf("\e[31;1mError in keyreleased: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in keyreleased: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
 
@@ -1622,7 +1647,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(mousepressed_args))) = num(event.button.button);
           eval(mousepressed_expr, env);
         } else {
-          printf("\e[31;1mError in mousepressed: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in mousepressed: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
 
@@ -1633,7 +1658,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(mousereleased_args))) = num(event.button.button);
           eval(mousereleased_expr, env);
         } else {
-          printf("\e[31;1mError in mousereleased: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in mousereleased: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
 
@@ -1645,7 +1670,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(CDR(mousemoved_args)))) = num((int)event.motion.yrel);
           eval(mousemoved_expr, env);
         } else {
-          printf("\e[31;1mError in mousemoved: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in mousemoved: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
 
@@ -1657,7 +1682,7 @@ int main(int argc, char **argv) {
           CAR(CDR(wheelmoved_args)) = num((int)event.wheel.y);
           eval(wheelmoved_expr, env);
         } else {
-          printf("\e[31;1mError in wheelmoved: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+          printf("\e[31;1mError in wheelmoved: %s\e[m\n", GET_ERR_STR(catch));
         }
       }
     }
@@ -1670,7 +1695,7 @@ int main(int argc, char **argv) {
         last_time = current_time;
         eval(update_expr, env);
       } else {
-        printf("\e[31;1mError in update: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+        printf("\e[31;1mError in update: %s\e[m\n", GET_ERR_STR(catch));
       }
     }
 
@@ -1682,7 +1707,7 @@ int main(int argc, char **argv) {
         eval(draw_expr, env);
         SDL_RenderPresent(sdl_renderer);
       } else {
-        printf("\e[31;1mError in draw: %s\e[m\n", errors[catch > 0 && catch <= ERRORS ? catch : 0]);
+        printf("\e[31;1mError in draw: %s\e[m\n", GET_ERR_STR(catch));
       }
     }
 
