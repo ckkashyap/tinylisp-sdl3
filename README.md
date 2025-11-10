@@ -19,7 +19,7 @@ Based on the following repos:
 * https://github.com/Robert-van-Engelen/tinylisp
 * https://github.com/Robert-van-Engelen/lisp
 
-All bugs found thus far have been my own. Test status:
+All bugs found thus far have been my own. Tested on:
 
 * Linux (Debian, Arch)
 * Mac OS
@@ -27,19 +27,18 @@ All bugs found thus far have been my own. Test status:
 # Prerequisites
 
 1. GNU `make`
-2. `tcc` as the C compiler
+2. Some C compiler. Compiles with [tcc](https://www.bellard.org/tcc).
 3. The following libraries
   * `SDL3` with development files
-  * `SDL_ttf` with developmement files
+  * `SDL_ttf` with development files
 
-On some platforms, the development files some with the libaries
-by default. On others, you must get a developer version of the
-package. To learn more, please see the [development packages section of `DEPENDENCIES.md`](DEPENDENCIES.md#development-packages).
+On some platforms, the development files come with the libaries
+by default. On others, you must get a [development
+version](DEPENDENCIES.md#development-packages) of the package.
 
 ## Platform-Specific Instructions
 
-The following sections of [`DEPENDENCIES.md`](DEPENDENCIES.md) offer
-best-effort guidance on each specific OS.
+This is incomplete, but such as we have:
 
 * [Windows](DEPENDENCIES.md#windows) ([Visual Studio Code](DEPENDENCIES.md#visual-studio-code), [mingw-64](DEPENDENCIES.md#mingw-w64), and [MSYS2](DEPENDENCIES.md#msys2))
 * [Mac](DEPENDENCIES.md#mac) (via Homebrew)
