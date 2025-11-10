@@ -63,9 +63,7 @@ You should see a second window open up with a black graphical canvas. The
 terminal will show a REPL after a list of available commands.
 
 ```
-Lisp REPL ready. Type Lisp expressions or press Ctrl+C to quit.
-You can also use the SDL3 window for graphics.
-
+Type Lisp expressions or '(quit)' to quit.
 >
 ```
 
