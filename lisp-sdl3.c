@@ -112,6 +112,14 @@ const char *errors[ERRORS+1] = {
  * 3. Support compilers without inline support (tcc) */
 #define GET_ERR_STR(e) (errors[e > 0 && e <= ERRORS ? e : 0])
 
+void errorInLocation(const char* where, int catch) {
+    fprintf(stderr, "\e[31;1mError in %s: %s\e[m\n", where, GET_ERR_STR(catch));
+}
+
+void errorInSDLInit(const char* where) {
+    fprintf(stderr, "\e[31;1m%s failed: %s\n", where, SDL_GetError());
+}
+
 
 /*----------------------------------------------------------------------------*\
  |      MEMORY MANAGEMENT AND RECYCLING                                       |
@@ -1411,7 +1419,7 @@ void load(const char *filename) {
       pop();
     }
   } else {
-    printf("\e[31;1mERR %d: %s\e[m", catch, GET_ERR_STR(catch));
+    errorInLocation(filename, catch);
   }
   fclose(f);
   memcpy(jb, saved_jb, sizeof(jmp_buf));
@@ -1431,12 +1439,12 @@ int main(int argc, char **argv) {
 
   /* Initialize SDL3 */
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+    errorInSDLInit("SDL_Init");
     return 1;
   }
 
   if (!TTF_Init()) {
-    fprintf(stderr, "TTF_Init failed: %s\n", SDL_GetError());
+    errorInSDLInit("TTF_Init");
     SDL_Quit();
     return 1;
   }
@@ -1444,7 +1452,7 @@ int main(int argc, char **argv) {
   /* Create window and renderer */
   if (!SDL_CreateWindowAndRenderer("Lisp SDL3 Graphics", 800, 600,
                                      SDL_WINDOW_RESIZABLE, &sdl_window, &sdl_renderer)) {
-    fprintf(stderr, "Window and renderer creation failed: %s\n", SDL_GetError());
+    errorInSDLInit("Window and renderer creation");
     TTF_Quit();
     SDL_Quit();
     return 1;
@@ -1589,7 +1597,7 @@ int main(int argc, char **argv) {
       /* Try to parse the accumulated input */
       bool incomplete = false;
       if ((catch = setjmp(jb)) > 0) {
-        printf("\e[31;1mERR %d: %s\e[m\n", catch, GET_ERR_STR(catch));
+        errorInLocation("REPL input", catch);
         free(accumulated_input);
         accumulated_input = NULL;
         incomplete = false;
@@ -1627,7 +1635,7 @@ int main(int argc, char **argv) {
           CAR(CDR(keypressed_args)) = event.key.repeat ? tru : nil;
           eval(keypressed_expr, env);
         } else {
-          printf("\e[31;1mError in keypressed: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("keypressed", catch);
         }
       }
 
@@ -1636,7 +1644,7 @@ int main(int argc, char **argv) {
           CAR(keyreleased_args) = num(event.key.scancode);
           eval(keyreleased_expr, env);
         } else {
-          printf("\e[31;1mError in keyreleased: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("keyreleased", catch);
         }
       }
 
@@ -1647,7 +1655,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(mousepressed_args))) = num(event.button.button);
           eval(mousepressed_expr, env);
         } else {
-          printf("\e[31;1mError in mousepressed: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("mousepressed", catch);
         }
       }
 
@@ -1658,7 +1666,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(mousereleased_args))) = num(event.button.button);
           eval(mousereleased_expr, env);
         } else {
-          printf("\e[31;1mError in mousereleased: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("mousereleased", catch);
         }
       }
 
@@ -1670,7 +1678,7 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(CDR(mousemoved_args)))) = num((int)event.motion.yrel);
           eval(mousemoved_expr, env);
         } else {
-          printf("\e[31;1mError in mousemoved: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("mousemoved", catch);
         }
       }
 
@@ -1682,7 +1690,7 @@ int main(int argc, char **argv) {
           CAR(CDR(wheelmoved_args)) = num((int)event.wheel.y);
           eval(wheelmoved_expr, env);
         } else {
-          printf("\e[31;1mError in wheelmoved: %s\e[m\n", GET_ERR_STR(catch));
+          errorInLocation("wheelmoved", catch);
         }
       }
     }
@@ -1695,7 +1703,7 @@ int main(int argc, char **argv) {
         last_time = current_time;
         eval(update_expr, env);
       } else {
-        printf("\e[31;1mError in update: %s\e[m\n", GET_ERR_STR(catch));
+        errorInLocation("update", catch);
       }
     }
 
@@ -1707,7 +1715,7 @@ int main(int argc, char **argv) {
         eval(draw_expr, env);
         SDL_RenderPresent(sdl_renderer);
       } else {
-        printf("\e[31;1mError in draw: %s\e[m\n", GET_ERR_STR(catch));
+        errorInLocation("draw", catch);
       }
     }
 
