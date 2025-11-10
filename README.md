@@ -44,7 +44,7 @@ best-effort guidance on each specific OS.
 * [Windows](DEPENDENCIES.md#windows) ([Visual Studio Code](DEPENDENCIES.md#visual-studio-code), [mingw-64](DEPENDENCIES.md#mingw-w64), and [MSYS2](DEPENDENCIES.md#msys2))
 * [Mac](DEPENDENCIES.md#mac) (via Homebrew)
 * [Linux](DEPENDENCIES.md#linux) distros:
-  - [Arch-based](DEPENDENCIES.md#arch) distros (Arch, Manjaro)
+  - [Arch-based](DEPENDENCIES.md#arch-linux) distros (Arch Linux, Manjaro)
   - [Debian-based](DEPENDENCIES.md#debian) distros (Debian, Linux Mint Debian Edition, Bunsen Labs)
   - [Ubuntu-based](DEPENDENCIES.md#ubuntu) distros (Pop!_OS, Linux Mint, ElementaryOS)
 
