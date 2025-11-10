@@ -689,6 +689,42 @@ L f_sub(L t, L *_) {
   return num(n);
 }
 
+L f_bin_and(L t, L *_) {
+  L a = car(t);
+  if (not(t = cdr(t)))
+   return err(5);
+  L b = car(t);
+  if (not(b))
+   return err(5);
+  int a_int = (int) a;
+  int b_int = (int) b;
+  return num(a_int & b_int);
+}
+
+L f_bin_shl(L t, L *_) {
+  L a = car(t);
+  if (not(t = cdr(t)))
+   return err(5);
+  L b = car(t);
+  if (not(b))
+   return err(5);
+  int a_int = (int) a;
+  int b_int = (int) b;
+  return num(a_int << b_int);
+}
+
+L f_bin_shr(L t, L *_) {
+  L a = car(t);
+  if (not(t = cdr(t)))
+   return err(5);
+  L b = car(t);
+  if (not(b))
+   return err(5);
+  int a_int = (int) a;
+  int b_int = (int) b;
+  return num(a_int >> b_int);
+}
+
 L f_mul(L t, L *_) {
   L n = car(t);
   while (!not(t = cdr(t)))
@@ -1162,6 +1198,9 @@ struct {
   {"not",      f_not,     NORMAL},              /* (not x) => #t if x==() else ()t */
   {"or",       f_or,      SPECIAL},             /* (or x1 x2 ... xk) => #t if any x1 is not () else () */
   {"and",      f_and,     SPECIAL},             /* (and x1 x2 ... xk) => #t if all x1 are not () else () */
+  {"&",        f_bin_and, NORMAL},              /* (& a b) => binary and of values. */
+  {">>",       f_bin_shr, NORMAL},              /* (& a b) => shift a right by b bits (both treated as ints) */
+  {"<<",       f_bin_shl, NORMAL},              /* (& a b) => shift a left by by bits (both treated as ints) */
   {"list",     f_list,    NORMAL},              /* (list x1 x2 ... xk) => (x1 x2 ... xk) -- evaluates x1, x2 ... xk */
   {"begin",    f_begin,   SPECIAL|TAILCALL},    /* (begin x1 x2 ... xk) => xk -- evaluates x1, x2 to xk */
   {"while",    f_while,   SPECIAL},             /* (while x y1 y2 ... yk) -- while x is not () evaluate y1, y2 ... yk */
