@@ -13,3 +13,8 @@
     (dolist (line example-text)
       (text margin-left y line)
       (setq y (+ y 30)))))
+
+(def keypressed (scancode)
+  (whenlet key (key scancode)
+    (let (p (nthcdr example-text 3))
+      (set-car! p (string (car p) key)))))

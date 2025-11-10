@@ -201,3 +201,22 @@
          (setq ,var (car _))
          (setq _ (cdr _))
          . body))))
+
+(mac awhen (expr . body)
+  `(let
+     (it ,expr)
+     (when it . body)))
+
+(mac whenlet (var expr . body)
+  `(let
+     (,var ,expr)
+     (when ,var . body)))
+
+(def alref (key h)
+  (awhen (assoc key h)
+    (car it)))
+
+(load "keybindings-us-qwerty.lisp")
+
+(def key (scancode)
+  (alref scancode keys))
