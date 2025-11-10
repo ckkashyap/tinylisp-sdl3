@@ -282,8 +282,8 @@ hosts multiple builds.
 The steps likely include:
 
 1. Download a version (GNU's is [`tcc-0.9.27-win64-bin.zip`](https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip)
-1. Extract the compiler to a folder you can add to `PATH`
-2. [Add it to `PATH` variable](https://stackoverflow.com/questions/9546324/adding-a-directory-to-the-path-environment-variable-in-windows)
+2. Extract the compiler to a folder you can add to `PATH`
+3. [Add it to `PATH` variable](https://stackoverflow.com/questions/9546324/adding-a-directory-to-the-path-environment-variable-in-windows)
 
 Afterward, you may need to restart or log out + in.
 
