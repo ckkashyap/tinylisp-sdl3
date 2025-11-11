@@ -786,9 +786,18 @@ L f_lt(L t, L *_) {
       *(int64_t*)&x < *(int64_t*)&y) ? tru : nil;
 }
 
-L f_eq(L t, L *_) {
+bool iso(L x, L y) {
+  if (equ(x, y)) return tru;
+  if (T(x) != T(y)) return nil;
+  if (T(x) == STRG) return !strcmp(A+ord(x), A+ord(y));
+  if (T(x) == CONS)
+    return iso(car(x), car(y)) && iso(cdr(x), cdr(y));
+  return nil;
+}
+
+L f_iso(L t, L *_) {
   L x = car(t), y = car(cdr(t));
-  return (T(x) == STRG && T(y) == STRG ? !strcmp(A+ord(x), A+ord(y)) : equ(x, y)) ? tru : nil;
+  return iso(x, y) ? tru : nil;
 }
 
 L f_not(L t, L *_) {
@@ -1229,7 +1238,7 @@ struct {
   {"/",        f_div,     NORMAL},              /* (/ n1 n2 ... nk) => n1/n2/.../nk or 1/n1 if k=1 */
   {"int",      f_int,     NORMAL},              /* (int <integer.frac>) => <integer> */
   {"<",        f_lt,      NORMAL},              /* (< n1 n2) => #t if n1<n2 else () */
-  {"eq?",      f_eq,      NORMAL},              /* (eq? x y) => #t if x==y else () */
+  {"iso",      f_iso,     NORMAL},              /* (iso x y) => structural equality */
   {"not",      f_not,     NORMAL},              /* (not x) => #t if x==() else ()t */
   {"or",       f_or,      SPECIAL},             /* (or x1 x2 ... xk) => #t if any x1 is not () else () */
   {"and",      f_and,     SPECIAL},             /* (and x1 x2 ... xk) => #t if all x1 are not () else () */

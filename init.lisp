@@ -1,27 +1,18 @@
 (define null? not)
-(define number? (lambda (x) (eq? (type x) 0)))
-(define symbol? (lambda (x) (eq? (type x) 2)))
-(define string? (lambda (x) (eq? (type x) 3)))
-(define pair? (lambda (x) (eq? (type x) 4)))
+(define number? (lambda (x) (iso (type x) 0)))
+(define symbol? (lambda (x) (iso (type x) 2)))
+(define string? (lambda (x) (iso (type x) 3)))
+(define pair? (lambda (x) (iso (type x) 4)))
 (define atom? (lambda (x) (not (pair? x))))
 (define list?
     (lambda (x)
         (if (pair? x)
             (list? (cdr x))
             (not x))))
-(define equal?
-    (lambda (x y)
-        (or
-            (eq? x y)
-            (and
-                (pair? x)
-                (pair? y)
-                (equal? (car x) (car y))
-                (equal? (cdr x) (cdr y))))))
 (define > (lambda (x y) (< y x)))
 (define <= (lambda (x y) (not (< y x))))
 (define >= (lambda (x y) (not (< x y))))
-(define = (lambda (x y) (eq? (- x y) 0)))
+(define = (lambda (x y) (iso (- x y) 0)))
 
 (define abs
     (lambda (n)
@@ -41,12 +32,12 @@
 (define mod (lambda (n m) (- n (* m (int (/ n m))))))
 (define gcd
     (lambda (n m)
-        (if (eq? m 0)
+        (if (iso m 0)
             n
             (gcd m (mod n m)))))
 (define lcm (lambda (n m) (/ (* n m) (gcd n m))))
-(define even? (lambda (n) (eq? (mod n 2) 0)))
-(define odd? (lambda (n) (eq? (mod n 2) 1)))
+(define even? (lambda (n) (iso (mod n 2) 0)))
+(define odd? (lambda (n) (iso (mod n 2) 1)))
 
 (define length-tr
     (lambda (t n)
@@ -66,7 +57,7 @@
             t)))
 (define nthcdr
     (lambda (t n)
-        (if (eq? n 0)
+        (if (iso n 0)
             t
             (nthcdr (cdr t) (- n 1)))))
 (define nth (lambda (t n) (car (nthcdr t n))))
@@ -79,7 +70,7 @@
 (define member
     (lambda (x t)
         (if t
-            (if (equal? x (car t))
+            (if (iso x (car t))
                 t
                 (member x (cdr t)))
             t)))
@@ -165,8 +156,8 @@
 (define reveal
     (lambda (f)
         (cond
-            ((eq? (type f) 6) (cons 'lambda (cons (car (car f)) (cons (cdr (car f)) ()))))
-            ((eq? (type f) 7) (cons 'macro (cons (car f) (cons (cdr f) ()))))
+            ((iso (type f) 6) (cons 'lambda (cons (car (car f)) (cons (cdr (car f)) ()))))
+            ((iso (type f) 7) (cons 'macro (cons (car f) (cons (cdr f) ()))))
             (#t  f))))
 
 (define mac (macro (name params . body)
