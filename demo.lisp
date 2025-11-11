@@ -1,6 +1,91 @@
 ; Demo demonstrating drawing and keyboard/mouse queries
 
+; Assumes init.lisp's floor and ceiling functions are loaded.
 (window-set-title "Lisp with SDL3 Graphics (Keyboard and Mouse Input Demo)")
+
+
+(def half (num) ; Get half of num
+    (/ num 2))
+
+
+; Center the given str over an x y w h rectangular region.
+; The text will extend beyond the region if it is bigger.
+; All pixel positions are rounded to the nearest whole px
+; to avoid blurry text.
+;   x   - The x center of the region in pixels
+;   y   - The y center of the region in pixels
+;   w   - The width of the region in pixels
+;   h   - The height of the region in pixels
+;   str - The string to draw.
+(def center-text-in (x y w h str) ; Center text over an (x y w h) rectangle.
+   (text
+        ; int-snapping's important to prevent blurriness
+        (floor (- (+ x (half w)) (half (text-width  str))))
+        (floor (- (+ y (half h)) (half (text-height str))))
+        str))
+
+; Draw a crosshair around the x y position with 1px lines.
+; Uses the current color for foreground drawing.
+; 
+;   x      - the x position of the center
+;   y      - the y position of the center
+;   radius - the distance of each four spokes from the center
+(def crosshair (x y radius) ; Draw a thin 1px crosshair
+    (line
+        (- x radius) y
+        (+ x radius) y)
+    (line
+        x (- y radius)
+        x (+ y radius)))
+
+; Draw a fixed-size plus shape of 80px x 80x with 20px thick lines.
+;   x - the x center of the shape in px
+;   y - the y center of the shape in px
+(def plusshape (x y)
+    (rect (- x 40) (- y 5) 80 10)
+    (rect (- x 5) (- y 40) 10 80))
+
+
+(def square-around (x y radius)
+    (rect
+        (floor (- x radius)) (floor (- y radius))
+        (ceiling (* 2 radius)) (ceiling (* 2 radius))
+    ))
+
+
+; Show a status indicator of the given color with white text.
+; 
+(def show-status (str x y w h r g b)
+    (color r g b)
+    (rect x y w h)
+    (color 255 255 255)
+    (center-text-in x y w h str))
+
+
+(def show-mouse-status (button-id str x y w h)
+    (if (mouse-button? button-id)
+        (show-status str
+            x y w h
+            255 100 100)
+        (show-status str
+            x y w h
+            100 100 100)))
+
+(def show-key-status (keycode str x y w h r g b)
+    (if (key-down? keycode)
+        (show-status str
+            x y w h
+            r g b)
+        (show-status str
+            x y w h
+            100 100 100)
+    )
+)
+
+(def show-dir-status (keycode str x y w h)
+   (show-key-status keycode str x y w h
+        100 255 100))
+
 
 (def draw ()
   (color 30 30 40)
@@ -10,131 +95,60 @@
 
   ; cursor crosshair at mouse position
   (color 100 200 255)
-  (line (- (mouse-x) 10) (mouse-y) (+ (mouse-x) 10) (mouse-y))
-  (line (mouse-x) (- (mouse-y) 10) (mouse-x) (+ (mouse-y) 10))
-  (color 100 200 255 100)
-  (rect (- (mouse-x) 3) (- (mouse-y) 3) 6 6)
+  (crosshair (mouse-x) (mouse-y) 20 1)
 
   ; mouse button states
   (color 200 200 200)
   (text 20 60 "Mouse Buttons:")
 
-  (if (mouse-button? 1)
-    (color 255 100 100)
-    (color 100 100 100))
-  (rect 200 55 60 35)
-  (color 255 255 255)
-  (text 210 60 "Left")
+  (show-mouse-status 1 "Left"
+    200 55 60 35)
+  (show-mouse-status 2 "Middle"
+    270 55 80 35)
+  (show-mouse-status 3 "Right"
+    360 55 70 35)
 
-  (if (mouse-button? 2)
-    (color 255 100 100)
-    (color 100 100 100))
-  (rect 270 55 80 35)
-  (color 255 255 255)
-  (text 275 60 "Middle")
+  ; Underlined buttons for "extra" optional buttons
+  (show-mouse-status 4 "X2"
+    440 55 70 35)
+  (show-mouse-status 5 "X2"
+    520 55 70 35)
 
-  (if (mouse-button? 3)
-    (color 255 100 100)
-    (color 100 100 100))
-  (rect 360 55 70 35)
-  (color 255 255 255)
-  (text 370 60 "Right")
-
-  ; "Extra" buttons X1 (4) and X2 (5) are not always present.
-  ; They are often used as back and forward in browsers.
-  (if (mouse-button? 4)
-    (color 255 100 100)
-    (color 100 100 100))
-  (rect 440 55 70 35)
-  (color 255 255 255)
-  (text 460 60 "X1")
-
-
-  (if (mouse-button? 5)
-    (color 255 100 100)
-    (color 100 100 100))
-  (rect 520 55 70 35)
-  (color 255 255 255)
-  (text 540 60 "X2")
-
+  ; The underline and label
   (color 200 200 200)
   (line 440 100 590 100)
   (text 440 110 "'Extra' buttons")
-
-
-  ; draw a translucent box around the mouse when left button is pressed
-  (when (mouse-button? 1)
-    (color 255 100 100 80)
-    (rect (- (mouse-x) 30) (- (mouse-y) 30) 60 60))
-
-  ; draw a plus pattern when right button is pressed
-  (when (mouse-button? 3)
-    (color 100 255 100 80)
-    (rect (- (mouse-x) 40) (- (mouse-y) 5) 80 10)
-    (rect (- (mouse-x) 5) (- (mouse-y) 40) 10 80))
 
   ; some keyboard states
   (color 200 200 200)
   (text 20 110 "WASD Keys:")
 
-  (if (key-down? 26)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 253 105 40 35)
-  (color 255 255 255)
-  (text 263 110 "W")
-
-  (if (key-down? 4)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 223 145 30 35)
-  (color 255 255 255)
-  (text 231 150 "A")
-
-  (if (key-down? 22)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 259 145 30 35)
-  (color 255 255 255)
-  (text 267 150 "S")
-
-  (if (key-down? 7)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 295 145 30 35)
-  (color 255 255 255)
-  (text 303 150 "D")
+  (show-dir-status 26 "W"
+    253 105 40 35)
+  (show-dir-status  4 "A"
+    223 145 30 35)
+  (show-dir-status 22 "S"
+    259 145 30 35)
+  (show-dir-status  7 "D"
+    295 145 30 35)
 
   (color 200 200 200)
   (text 20 200 "Arrow Keys:")
 
-  (if (key-down? 82)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 260 195 40 35)
-  (color 255 255 255)
-  (text 268 200 "Up")
+  ; DejaVu Sans includes the following arrow glyphs:
+  ; "←" : Leftwards Arrow   (https://www.compart.com/en/unicode/U+2190)
+  ; "↑" : Upwards Arrow     (https://www.compart.com/en/unicode/U+2191)
+  ; "→" : Rightwards Arrow  (https://www.compart.com/en/unicode/U+2192)
+  ; "↓" : Downwards Arrow   (https://www.compart.com/en/unicode/U+2193)
 
-  (if (key-down? 80)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 200 235 50 35)
-  (color 255 255 255)
-  (text 205 240 "Left")
-
-  (if (key-down? 81)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 255 235 65 35)
-  (color 255 255 255)
-  (text 260 240 "Down")
-
-  (if (key-down? 79)
-    (color 100 255 100)
-    (color 100 100 100))
-  (rect 325 235 65 35)
-  (color 255 255 255)
-  (text 330 240 "Right")
+  (show-dir-status 82 "↑" ; Up arrow
+    260 195 40 35)
+  (show-dir-status 80 "←"
+    200 235 50 35)
+  (show-dir-status 81 "↓"  ; Down
+    255 235 65 35)
+  (show-dir-status 79 "→"
+    325 235 65 35)
 
   (color 200 200 200)
   (text 20 290 "Spacebar:")
@@ -147,4 +161,15 @@
   (color 150 150 150)
   (text 20 340 "Move mouse and press keys/buttons")
   (text 20 370 "Crosshair follows mouse position")
+
+  ; draw a translucent box around the mouse when left button is pressed
+  (when (mouse-button? 1)
+    (color 255 100 100 80)
+    (square-around (mouse-x) (mouse-y) 60))
+
+  ; draw a plus pattern when right button is pressed
+  (when (mouse-button? 3)
+    (color 100 255 100 80)
+    (plusshape (mouse-x) (mouse-y)))
+
 )
