@@ -336,11 +336,13 @@ L cdr(L p) {
 L assoc(L v, L e) {
   while (T(e) == CONS && !equ(v, car(car(e))))
     e = cdr(e);
-  if(T(e) == CONS) // found it.
+  if (T(e) == NIL)  // not found
+    return nil;
+  else if(T(e) == CONS) // found it.
     return cdr(car(e));
-  else // not found and we must error.
+  else // error
     if (T(v) == ATOM)
-      ERR((int) ERR_UNBOUND, "unbound %s ", A+ord(v));
+      ERR((int) ERR_UNBOUND, "no such key %s ", A+ord(v));
     else
       err((int) ERR_UNBOUND);
 }
@@ -736,6 +738,34 @@ L f_bin_and(L t, L *_) {
   return num(a_int & b_int);
 }
 
+L f_bin_or(L t, L *_) {
+  L a = car(t);
+  if (not(a))
+   return err(ERR_ARGUMENTS);
+  if (not(t = cdr(t)))
+   return err(ERR_ARGUMENTS);
+  L b = car(t);
+  if (not(b))
+   return err(ERR_ARGUMENTS);
+  int a_int = (int) a;
+  int b_int = (int) b;
+  return num(a_int | b_int);
+}
+
+L f_bin_xor(L t, L *_) {
+  L a = car(t);
+  if (not(a))
+   return err(ERR_ARGUMENTS);
+  if (not(t = cdr(t)))
+   return err(ERR_ARGUMENTS);
+  L b = car(t);
+  if (not(b))
+   return err(ERR_ARGUMENTS);
+  int a_int = (int) a;
+  int b_int = (int) b;
+  return num(a_int ^ b_int);
+}
+
 L f_bin_shl(L t, L *_) {
   L a = car(t);
   if (not(a))
@@ -791,12 +821,12 @@ L f_lt(L t, L *_) {
 }
 
 bool iso(L x, L y) {
-  if (equ(x, y)) return tru;
-  if (T(x) != T(y)) return nil;
+  if (equ(x, y)) return true;
+  if (T(x) != T(y)) return false;
   if (T(x) == STRG) return !strcmp(A+ord(x), A+ord(y));
   if (T(x) == CONS)
     return iso(car(x), car(y)) && iso(cdr(x), cdr(y));
-  return nil;
+  return false;
 }
 
 L f_iso(L t, L *_) {
@@ -1247,19 +1277,25 @@ struct {
   {"cons",     f_cons,    NORMAL},              /* (cons x y) => (x . y) -- construct a pair */
   {"car",      f_car,     NORMAL},              /* (car <pair>) => x -- "deconstruct" <pair> (x . y) */
   {"cdr",      f_cdr,     NORMAL},              /* (cdr <pair>) => y -- "deconstruct" <pair> (x . y) */
+  // Basic arithmetic
   {"+",        f_add,     NORMAL},              /* (+ n1 n2 ... nk) => n1+n2+...+nk */
   {"-",        f_sub,     NORMAL},              /* (- n1 n2 ... nk) => n1-n2-...-nk or -n1 if k=1 */
   {"*",        f_mul,     NORMAL},              /* (* n1 n2 ... nk) => n1*n2*...*nk */
   {"/",        f_div,     NORMAL},              /* (/ n1 n2 ... nk) => n1/n2/.../nk or 1/n1 if k=1 */
   {"int",      f_int,     NORMAL},              /* (int <integer.frac>) => <integer> */
+  // Boolean logic
   {"<",        f_lt,      NORMAL},              /* (< n1 n2) => #t if n1<n2 else () */
   {"iso",      f_iso,     NORMAL},              /* (iso x y) => structural equality */
   {"not",      f_not,     NORMAL},              /* (not x) => #t if x==() else () */
   {"or",       f_or,      SPECIAL},             /* (or x1 x2 ... xk) => #t if any x1 is not () else () */
   {"and",      f_and,     SPECIAL},             /* (and x1 x2 ... xk) => #t if all x1 are not () else () */
+  // Bit-level binary logic operators
   {"&",        f_bin_and, NORMAL},              /* (& a b) => binary and of values. */
+  {"^",        f_bin_xor, NORMAL},              /* (^ a b) => binary and of values. */
+  {"|",        f_bin_or,  NORMAL},              /* (| a b) => binary and of values. */
   {">>",       f_bin_shr, NORMAL},              /* (& a b) => shift a right by b bits (both treated as ints) */
   {"<<",       f_bin_shl, NORMAL},              /* (& a b) => shift a left by by bits (both treated as ints) */
+  // Flow control and data
   {"list",     f_list,    NORMAL},              /* (list x1 x2 ... xk) => (x1 x2 ... xk) -- evaluates x1, x2 ... xk */
   {"begin",    f_begin,   SPECIAL|TAILCALL},    /* (begin x1 x2 ... xk) => xk -- evaluates x1, x2 to xk */
   {"while",    f_while,   SPECIAL},             /* (while x y1 y2 ... yk) -- while x is not () evaluate y1, y2 ... yk */
@@ -1287,6 +1323,7 @@ struct {
   {"catch",    f_catch,   SPECIAL},             /* (catch <expr>) => <value-of-expr> if no exception else (ERR . n) */
   {"throw",    f_throw,   NORMAL},              /* (throw n) -- raise exception error code n (integer != 0) */
   {"quit",     f_quit,    NORMAL},              /* (quit) -- bye! */
+  // Graphics
   {"clear",    f_sdl_clear,   NORMAL},          /* (clear) -- clear screen with current color */
   {"present",  f_sdl_present, NORMAL},          /* (present) -- update display */
   {"color",    f_sdl_color,   NORMAL},          /* (color r g b [a]) -- set drawing color (0-255) */
