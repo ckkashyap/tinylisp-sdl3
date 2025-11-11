@@ -1239,7 +1239,7 @@ struct {
   {"int",      f_int,     NORMAL},              /* (int <integer.frac>) => <integer> */
   {"<",        f_lt,      NORMAL},              /* (< n1 n2) => #t if n1<n2 else () */
   {"iso",      f_iso,     NORMAL},              /* (iso x y) => structural equality */
-  {"not",      f_not,     NORMAL},              /* (not x) => #t if x==() else ()t */
+  {"not",      f_not,     NORMAL},              /* (not x) => #t if x==() else () */
   {"or",       f_or,      SPECIAL},             /* (or x1 x2 ... xk) => #t if any x1 is not () else () */
   {"and",      f_and,     SPECIAL},             /* (and x1 x2 ... xk) => #t if all x1 are not () else () */
   {"&",        f_bin_and, NORMAL},              /* (& a b) => binary and of values. */
