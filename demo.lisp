@@ -80,9 +80,24 @@
    (color 100 255 100)
    (show-key-status keycode str x y w h))
 
+
 ; Non-letter, non-"extended" keys have this base padding:
 ; https://wiki.libsdl.org/SDL3/SDL_Keycode
-(def pad-key (base) (+ 0x40000000 base))
+;
+(define K_UP    (| 0x40000000 0x52))
+(define K_LEFT  (| 0x40000000 0x50))
+(define K_RIGHT (| 0x40000000 0x4f))
+(define K_DOWN  (| 0x40000000 0x51))
+
+; "Cannot apply" ?
+; (def hi-mask (base) (| 0x40000000 base))
+
+(define K_W 0x77)
+(define K_A 0x61)
+(define K_S 0x73)
+(define K_D 0x64)
+
+(define K_SPACE 0x20)
 
 
 (def draw ()
@@ -121,13 +136,13 @@
   (color 200 200 200)
   (text 20 110 "WASD Keys:")
 
-  (show-dir-status 0x77 "W"
+  (show-dir-status K_W "W"
     253 105 40 35)
-  (show-dir-status 0x61 "A"
+  (show-dir-status K_A "A"
     223 145 30 35)
-  (show-dir-status 0x73 "S"
+  (show-dir-status K_S "S"
     259 145 30 35)
-  (show-dir-status 0x64 "D"
+  (show-dir-status K_D "D"
     295 145 30 35)
 
   (color 200 200 200)
@@ -139,20 +154,20 @@
   ; "→" : Rightwards Arrow  (https://www.compart.com/en/unicode/U+2192)
   ; "↓" : Downwards Arrow   (https://www.compart.com/en/unicode/U+2193)
 
-  (show-dir-status (pad-key 0x52) "↑" ; Up arrow
+  (show-dir-status K_UP    "↑"
     260 195 40 35)
-  (show-dir-status (pad-key 0x50) "←"
+  (show-dir-status K_LEFT  "←"
     200 235 50 35)
-  (show-dir-status (pad-key 0x51) "↓"  ; Down
+  (show-dir-status K_DOWN  "↓"
     255 235 65 35)
-  (show-dir-status (pad-key 0x4f) "→"
+  (show-dir-status K_RIGHT "→"
     325 235 65 35)
 
-  (text 20 290 "Spacebar:")
+  ; (text 20 290 "Spacebar:")
 
   (color 200 200 200)
-  (show-key-status 0x20 ""
-    200 285 190 35)
+  (show-key-status K_SPACE ""
+     200 285 190 35)
 
   ; instructions
   (color 150 150 150)
