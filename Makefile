@@ -22,7 +22,9 @@ endif
 CFLAGS = -g $(READLINE_CFLAGS) $(SDL_CFLAGS)
 LDFLAGS = -lm $(READLINE_LDFLAGS) $(SDL_LDFLAGS)
 
+# Debian does not like the bare line version of this?
 lisp-sdl3: lisp-sdl3.c
+	$(CC) -g $(CFLAGS) lisp-sdl3.c -o lisp-sdl3 $(LDFLAGS)
 
 clean:
 	rm -rf lisp-sdl3 lisp-sdl3.dSYM
