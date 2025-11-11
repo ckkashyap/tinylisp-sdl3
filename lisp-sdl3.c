@@ -86,11 +86,10 @@ I equ(L x, L y) { return *(uint64_t*)&x == *(uint64_t*)&y; }
 jmp_buf jb;
 
 /* report and throw an exception */
-#define ERR(n, ...) (fprintf(stderr, __VA_ARGS__), err(n)) // TODO: err() is a system call? Is this right?
-__attribute__((noreturn)) L err(int n) { longjmp(jb, n); } // gcc extension?
+#define ERR(n, ...) (fprintf(stderr, __VA_ARGS__), err(n))
+__attribute__((noreturn)) L err(int n) { longjmp(jb, n); }
 
 
-#define ERRORS 8
 typedef enum  {
     ERR_UNKNOWN    = 0,
     ERR_NOT_PAIR   = 1,
@@ -100,20 +99,17 @@ typedef enum  {
     ERR_ARGUMENTS  = 5,
     ERR_STACK_OVER = 6,
     ERR_OUT_OF_MEM = 7,
-    ERR_SYNTAX     = 8
+    ERR_SYNTAX     = 8,
+    NUM_ERRORS     = 9
 } LispRuntimeError;
 
-const char *errors[ERRORS+1] = {
-  "", "not a pair", "break", "unbound symbol", "cannot apply", "arguments", "stack over", "out of memory", "syntax"
+const char *errors[NUM_ERRORS+1] = {
+  "unknown", "not a pair", "break", "unbound symbol", "cannot apply", "arguments", "stack over", "out of memory", "syntax"
 };
-/* Using a macro does three things:
- * 1. Shortens code
- * 2. Reduces bug vulnerability from typos/regex accidents
- * 3. Support compilers without inline support (tcc) */
-#define GET_ERR_STR(e) (errors[e > 0 && e <= ERRORS ? e : 0])
 
-void errorInLocation(const char* where, int catch) {
-    fprintf(stderr, "\e[31;1mError in %s: %s\e[m\n", where, GET_ERR_STR(catch));
+void errorInLocation(const char* where, int e) {
+    const char *error = errors[e > 0 && e <= NUM_ERRORS ? e : 0];
+    fprintf(stderr, "\e[31;1mError in %s: %s\e[m\n", where, error);
 }
 
 void errorInSDLInit(const char* where) {
@@ -218,7 +214,7 @@ void compact() {
   }
 }
 
-/* garbage collector, returns number of free cells in the pool or raises err((int) ERR_OUT_OF_MEM */
+/* garbage collector, returns number of free cells in the pool or raises ERR_OUT_OF_MEM */
 I gc() {
   I i;
   BREAK_OFF;                                    /* do not interrupt GC */
@@ -340,13 +336,13 @@ L cdr(L p) {
 L assoc(L v, L e) {
   while (T(e) == CONS && !equ(v, car(car(e))))
     e = cdr(e);
-  L resolved;
   if(T(e) == CONS) // found it.
-    resolved = cdr(car(e));
+    return cdr(car(e));
   else // not found and we must error.
-    resolved = T(v) == ATOM ? ERR((int) ERR_UNBOUND, "unbound %s ", A+ord(v)) : err((int) ERR_UNBOUND);
-
-  return resolved;
+    if (T(v) == ATOM)
+      ERR((int) ERR_UNBOUND, "unbound %s ", A+ord(v));
+    else
+      err((int) ERR_UNBOUND);
 }
 
 /* check if a symbol is bound in an environment (for callback checking) */
