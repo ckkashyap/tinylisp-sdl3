@@ -55,36 +55,29 @@
 
 ; Show a status indicator of the given color with white text.
 ; 
-(def show-status (str x y w h r g b)
-    (color r g b)
+(def show-status (str x y w h)
     (rect x y w h)
     (color 255 255 255)
     (center-text-in x y w h str))
 
 
 (def show-mouse-status (button-id str x y w h)
-    (if (mouse-button? button-id)
-        (show-status str
-            x y w h
-            255 100 100)
-        (show-status str
-            x y w h
-            100 100 100)))
+    (color
+        (if (mouse-button? button-id) 255 100)  ; red
+        100
+        100)
+    (show-status str x y w h))
 
-(def show-key-status (keycode str x y w h r g b)
-    (if (key-down? keycode)
-        (show-status str
-            x y w h
-            r g b)
-        (show-status str
-            x y w h
-            100 100 100)
-    )
+(def show-key-status (keycode str x y w h)
+    ; TODO: ugly that it silently switches color
+    (unless (key-down? keycode)
+      (color 100 100 100))
+    (show-status str x y w h)
 )
 
 (def show-dir-status (keycode str x y w h)
-   (show-key-status keycode str x y w h
-        100 255 100))
+   (color 100 255 100)
+   (show-key-status keycode str x y w h))
 
 
 (def draw ()
