@@ -1486,7 +1486,7 @@ int main(int argc, char **argv) {
   printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
   printf("  (define wheelmoved (lambda (x y) ...))\n\n");
   printf("Application state:\n");
-  printf("  (window-set-title string)   - set the title of the window.");
+  printf("  (window-set-title string)   - set the title of the window.\n");
   printf("  (quit)                      - quit the program and close the window.\n\n");
 
   /* Initialize Lisp environment */
