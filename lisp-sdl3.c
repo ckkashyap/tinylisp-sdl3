@@ -789,12 +789,12 @@ L f_lt(L t, L *_) {
 }
 
 bool iso(L x, L y) {
-  if (equ(x, y)) return tru;
-  if (T(x) != T(y)) return nil;
+  if (equ(x, y)) return true;
+  if (T(x) != T(y)) return false;
   if (T(x) == STRG) return !strcmp(A+ord(x), A+ord(y));
   if (T(x) == CONS)
     return iso(car(x), car(y)) && iso(cdr(x), cdr(y));
-  return nil;
+  return false;
 }
 
 L f_iso(L t, L *_) {
