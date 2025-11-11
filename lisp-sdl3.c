@@ -336,11 +336,13 @@ L cdr(L p) {
 L assoc(L v, L e) {
   while (T(e) == CONS && !equ(v, car(car(e))))
     e = cdr(e);
-  if(T(e) == CONS) // found it.
+  if (T(e) == NIL)  // not found
+    return nil;
+  else if(T(e) == CONS) // found it.
     return cdr(car(e));
-  else // not found and we must error.
+  else // error
     if (T(v) == ATOM)
-      ERR((int) ERR_UNBOUND, "unbound %s ", A+ord(v));
+      ERR((int) ERR_UNBOUND, "no such key %s ", A+ord(v));
     else
       err((int) ERR_UNBOUND);
 }

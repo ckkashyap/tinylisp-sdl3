@@ -207,7 +207,45 @@
   (awhen (assoc key h)
     (car it)))
 
+(define platform (get-platform))
+
+(define local-accel
+    (if (or
+          (iso platform "macOS")
+          (iso platform "iOS"))
+      (<< 1 1) ; Ctrl key
+      (<< 1 5)) ; Command key on mac
+)
+
+(define 'mod-keys `(
+    (shift       ,(<< 1 0))
+    (ctrl        ,(<< 1 1))
+    (alt         ,(<< 1 2))
+    (capslock    ,(<< 1 3))
+    (numlock     ,(<< 1 4))
+    (windows     ,(<< 1 5))
+    (command     ,(<< 1 6))
+    (option      ,(<< 1 7))
+    (scrolllock  ,(<< 1 8))
+    (function    ,(<< 1 9))
+    (accel      ,local-accel)
+))
+
 (load "keybindings-us-qwerty.lisp")
 
+(def ctrl-down? ()
+  (or (key-down? (alref 'lctrl scancodes))
+      (key-down? (alref 'rctrl scancodes))))
+
+(def alt-down? ()
+  (or (key-down? (alref 'lalt scancodes))
+      (key-down? (alref 'ralt scancodes))))
+
+(def shift-down? ()
+  (or (key-down? (alref 'lshift scancodes))
+      (key-down? (alref 'rshift scancodes))))
+
 (def key (scancode)
-  (alref scancode keys))
+  (if (shift-down?)
+    (alref scancode shifted-keys)
+    (alref scancode keys)))
