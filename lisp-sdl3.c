@@ -721,10 +721,10 @@ L f_sub(L t, L *_) {
 L f_bin_and(L t, L *_) {
   L a = car(t);
   if (not(t = cdr(t)))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   L b = car(t);
   if (not(b))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   int a_int = (int) a;
   int b_int = (int) b;
   return num(a_int & b_int);
@@ -733,10 +733,10 @@ L f_bin_and(L t, L *_) {
 L f_bin_shl(L t, L *_) {
   L a = car(t);
   if (not(t = cdr(t)))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   L b = car(t);
   if (not(b))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   int a_int = (int) a;
   int b_int = (int) b;
   return num(a_int << b_int);
@@ -745,10 +745,10 @@ L f_bin_shl(L t, L *_) {
 L f_bin_shr(L t, L *_) {
   L a = car(t);
   if (not(t = cdr(t)))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   L b = car(t);
   if (not(b))
-   return err(5);
+   return err(ERR_ARGUMENTS);
   int a_int = (int) a;
   int b_int = (int) b;
   return num(a_int >> b_int);
