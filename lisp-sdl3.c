@@ -362,6 +362,7 @@ I more(L t) {
   return !not(t) && !not(cdr(t));
 }
 
+
 /*----------------------------------------------------------------------------*\
  |      BATCH READ                                                           |
  |      read_b -> parse_b -> scan_b -> get_b                                 |
@@ -665,10 +666,13 @@ FILE *out;
 /* SDL3 global variables */
 SDL_Window *sdl_window = NULL;
 SDL_Renderer *sdl_renderer = NULL;
+
+/* Input and rendering state */
 int current_r = 255, current_g = 255, current_b = 255, current_a = 255;
 TTF_Font *current_font = NULL;
 float mouse_wheel_x = 0.0f;
 float mouse_wheel_y = 0.0f;
+SDL_Keymod modifiers = SDL_KMOD_NONE;  // Allows key-down? to work
 
 /* construct a new list of evaluated expressions in list t, i.e. the arguments passed to a function or primitive */
 L eval(L, L);
@@ -1179,9 +1183,20 @@ L f_window_set_title(L t, L *_) {
 }
 
 L f_key_down(L t, L *_) {
-  int scancode = (int)num(car(t));
+  int keycode = (int)num(car(t));
+  int scancode = SDL_GetScancodeFromKey(keycode, &modifiers);
+  // May be brittle relative to events? See doc notes on event handling.
   const bool *state = SDL_GetKeyboardState(NULL);
   return state && state[scancode] ? tru : nil;
+}
+
+L f_key_name(L t, L *_) {
+  int keycode = (int)num(car(t)); 
+  const char* keyNameRaw = SDL_GetKeyName(keycode);
+  if(keyNameRaw == 0)
+       return nil;
+  else
+       return string(keyNameRaw);
 }
 
 L f_mouse_x(L t, L *_) {
@@ -1282,7 +1297,8 @@ struct {
   {"text",          f_text,          NORMAL},   /* (text x y string) -- render text at position */
   {"text-width",    f_text_width,    NORMAL},   /* (text-width string) -- get text width in pixels */
   {"text-height",   f_text_height,   NORMAL},   /* (text-height string) -- get text height in pixels */
-  {"key-down?",     f_key_down,      NORMAL},   /* (key-down? scancode) -- check if key pressed */
+  {"key-down?",     f_key_down,      NORMAL},   /* (key-down? keycode) -- check if key pressed */
+  {"key-name",      f_key_name,      NORMAL},   /* (key-name keycode) -- get the name for a keycode or "" if none known. */
   {"mouse-x",       f_mouse_x,       NORMAL},   /* (mouse-x) -- get mouse X position */
   {"mouse-y",       f_mouse_y,       NORMAL},   /* (mouse-y) -- get mouse Y position */
   {"mouse-button?", f_mouse_button,  NORMAL},   /* (mouse-button? btn) -- check mouse button state */
@@ -1535,7 +1551,8 @@ int main(int argc, char **argv) {
   printf("  (text-height string)    - get text height in pixels\n");
   printf("\n");
   printf("Input (keyboard and mouse):\n");
-  printf("  (key-down? scancode)    - check if key pressed (SDL scancode)\n");
+  printf("  (key-down? keycode)     - check if key pressed (SDL keycode)\n");
+  printf("  (key-name  keycode)     - get a string name for a keycode (may be blank)\n");
   printf("  (mouse-x)               - get mouse X position\n");
   printf("  (mouse-y)               - get mouse Y position\n");
   printf("  (mouse-button? btn)     - check mouse button (1=left, 2=mid, 3=right)\n");
@@ -1545,8 +1562,8 @@ int main(int argc, char **argv) {
   printf("Callbacks:\n");
   printf("  (define draw (lambda () ...))     - called each frame\n");
   printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
-  printf("  (define keypressed (lambda (scancode isrepeat) ...))\n");
-  printf("  (define keyreleased (lambda (scancode) ...))\n");
+  printf("  (define keypressed (lambda (keycode modifiers isrepeat scancode) ...))\n");
+  printf("  (define keyreleased (lambda (keycode modifiers scancode) ...))\n");
   printf("  (define mousepressed (lambda (x y button) ...))\n");
   printf("  (define mousereleased (lambda (x y button) ...))\n");
   printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
@@ -1587,15 +1604,15 @@ int main(int argc, char **argv) {
   L update_expr = cons(update_sym, update_args);
   env = pair(atom("__update_expr__"), update_expr, env);
 
-  L keypressed_args = cons(num(0), cons(nil, nil));
+  L keypressed_args = cons(num(0), cons(num(0), cons(nil, cons(num(0), nil))));
   L keypressed_expr = cons(keypressed_sym, keypressed_args);
   env = pair(atom("__keypressed_expr__"), keypressed_expr, env);
 
-  L keyreleased_args = cons(num(0), nil);
+  L keyreleased_args = cons(num(0), cons(num(0), cons(num(0), nil)));
   L keyreleased_expr = cons(keyreleased_sym, keyreleased_args);
   env = pair(atom("__keyreleased_expr__"), keyreleased_expr, env);
 
-  L mousepressed_args = cons(num(0), cons(num(0), cons(num(0), nil)));
+  L mousepressed_args = cons(num(0), cons(num(0), cons(nil, nil)));
   L mousepressed_expr = cons(mousepressed_sym, mousepressed_args);
   env = pair(atom("__mousepressed_expr__"), mousepressed_expr, env);
 
@@ -1696,9 +1713,14 @@ int main(int argc, char **argv) {
 
       if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(keypressed_args) = num(event.key.scancode);
-          CAR(CDR(keypressed_args)) = event.key.repeat ? tru : nil;
+          // printf("  (define keypressed (lambda (keycode modifiers isrepeat scancode) ...))\n");
+          CAR(keypressed_args) = num(event.key.key);
+          modifiers = event.key.mod;
+          CAR(CDR(keypressed_args)) = num((int) modifiers);
+          CAR(CDR(CDR(keypressed_args))) = event.key.repeat ? tru : nil;
+          CAR(CDR(CDR(CDR(keypressed_args)))) = num(event.key.scancode);
           eval(keypressed_expr, env);
+
         } else {
           errorInLocation("keypressed", catch);
         }
@@ -1706,7 +1728,11 @@ int main(int argc, char **argv) {
 
       if (event.type == SDL_EVENT_KEY_UP && bound(keyreleased_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(keyreleased_args) = num(event.key.scancode);
+          CAR(keyreleased_args) = num(event.key.key);
+          modifiers = event.key.mod;
+          CAR(CDR(keyreleased_args)) = num((int) modifiers);
+          CAR(CDR(CDR(CDR(keyreleased_args)))) = num(event.key.scancode);
+
           eval(keyreleased_expr, env);
         } else {
           errorInLocation("keyreleased", catch);

@@ -18,11 +18,12 @@
 ;   h   - The height of the region in pixels
 ;   str - The string to draw.
 (def center-text-in (x y w h str) ; Center text over an (x y w h) rectangle.
-   (text
-        ; int-snapping's important to prevent blurriness
-        (floor (- (+ x (half w)) (half (text-width  str))))
-        (floor (- (+ y (half h)) (half (text-height str))))
-        str))
+   (unless (iso str "")
+    (text
+            ; int-snapping's important to prevent blurriness
+            (floor (- (+ x (half w)) (half (text-width  str))))
+            (floor (- (+ y (half h)) (half (text-height str))))
+            str)))
 
 ; Draw a crosshair around the x y position with 1px lines.
 ; Uses the current color for foreground drawing.
@@ -79,6 +80,10 @@
    (color 100 255 100)
    (show-key-status keycode str x y w h))
 
+; Non-letter, non-"extended" keys have this base padding:
+; https://wiki.libsdl.org/SDL3/SDL_Keycode
+(def pad-key (base) (+ 0x40000000 base))
+
 
 (def draw ()
   (color 30 30 40)
@@ -116,13 +121,13 @@
   (color 200 200 200)
   (text 20 110 "WASD Keys:")
 
-  (show-dir-status 26 "W"
+  (show-dir-status 0x77 "W"
     253 105 40 35)
-  (show-dir-status  4 "A"
+  (show-dir-status 0x61 "A"
     223 145 30 35)
-  (show-dir-status 22 "S"
+  (show-dir-status 0x73 "S"
     259 145 30 35)
-  (show-dir-status  7 "D"
+  (show-dir-status 0x64 "D"
     295 145 30 35)
 
   (color 200 200 200)
@@ -134,21 +139,20 @@
   ; "→" : Rightwards Arrow  (https://www.compart.com/en/unicode/U+2192)
   ; "↓" : Downwards Arrow   (https://www.compart.com/en/unicode/U+2193)
 
-  (show-dir-status 82 "↑" ; Up arrow
+  (show-dir-status (pad-key 0x52) "↑" ; Up arrow
     260 195 40 35)
-  (show-dir-status 80 "←"
+  (show-dir-status (pad-key 0x50) "←"
     200 235 50 35)
-  (show-dir-status 81 "↓"  ; Down
+  (show-dir-status (pad-key 0x51) "↓"  ; Down
     255 235 65 35)
-  (show-dir-status 79 "→"
+  (show-dir-status (pad-key 0x4f) "→"
     325 235 65 35)
 
-  (color 200 200 200)
   (text 20 290 "Spacebar:")
-  (if (key-down? 44)
-    (color 255 255 100)
-    (color 100 100 100))
-  (rect 200 285 190 35)
+
+  (color 200 200 200)
+  (show-key-status 0x20 ""
+    200 285 190 35)
 
   ; instructions
   (color 150 150 150)
