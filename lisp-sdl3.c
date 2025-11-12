@@ -1276,8 +1276,8 @@ struct {
   {"and",      f_and,     SPECIAL},             /* (and x1 x2 ... xk) => #t if all x1 are not () else () */
   // Bit-level binary logic operators
   {"&",        f_bin_and, NORMAL},              /* (& a b) => binary and of values. */
-  {"^",        f_bin_xor, NORMAL},              /* (^ a b) => binary and of values. */
-  {"|",        f_bin_or,  NORMAL},              /* (| a b) => binary and of values. */
+  {"^",        f_bin_xor, NORMAL},              /* (^ a b) => binary xor of values. */
+  {"|",        f_bin_or,  NORMAL},              /* (| a b) => binary or of values. */
   {">>",       f_bin_shr, NORMAL},              /* (& a b) => shift a right by b bits (both treated as ints) */
   {"<<",       f_bin_shl, NORMAL},              /* (& a b) => shift a left by by bits (both treated as ints) */
   // Flow control and data
