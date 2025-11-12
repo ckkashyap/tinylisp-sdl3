@@ -809,6 +809,65 @@ L f_int(L t, L *_) {
   return n < 1e16 && n > -1e16 ? (int64_t)n : n;
 }
 
+L f_math_sin(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_sin(x));
+}
+
+L f_math_cos(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_cos(x));
+}
+
+
+L f_math_tan(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_tan(x));
+}
+
+
+L f_math_asin(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_asin(x));
+}
+
+L f_math_acos(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_acos(x));
+}
+
+
+L f_math_atan(L t, L *_) {
+  L x = car(t);
+  if(not(x))
+    return err(ERR_ARGUMENTS);
+  return num(SDL_atan(x));
+}
+
+
+L f_math_atan2(L t, L *_) {
+  L x = car(t);
+  if (not(x))
+   return err(ERR_ARGUMENTS);
+  if (not(t = cdr(t)))
+   return err(ERR_ARGUMENTS);
+  L y = car(t);
+  if (not(y))
+   return err(ERR_ARGUMENTS);
+  return num(SDL_atan2(x, y));
+}
+
+
 L f_lt(L t, L *_) {
   L x = car(t), y = car(cdr(t));
   return (T(x) == T(y) && (T(x) & ~(ATOM^STRG)) == ATOM ? strcmp(A+ord(x), A+ord(y)) < 0 :
@@ -1268,6 +1327,16 @@ struct {
   {"*",        f_mul,     NORMAL},              /* (* n1 n2 ... nk) => n1*n2*...*nk */
   {"/",        f_div,     NORMAL},              /* (/ n1 n2 ... nk) => n1/n2/.../nk or 1/n1 if k=1 */
   {"int",      f_int,     NORMAL},              /* (int <integer.frac>) => <integer> */
+  // Trig and other nice math
+  // NOTE: SDL's non-*f trig functions seem to vary in output
+  // See https://wiki.libsdl.org/SDL3/SDL_tan
+  {"math-cos", f_math_cos, NORMAL},             /* (math-cos radians) => sine    (note the downward-facing coordinate system!) */
+  {"math-sin", f_math_sin, NORMAL},             /* (math-sin radians) => cosine  (note the downward-facing coordinate system!) */
+  {"math-tan", f_math_tan, NORMAL},             /* (math-tan radians) => slope   (note the downward-facing coordinate system!) */
+  {"math-acos", f_math_acos, NORMAL},           /* (math-acos cosval) => radians (note the downward-facing coordinate system!) */
+  {"math-asin", f_math_asin, NORMAL},           /* (math-acos sinval) => radians (note the downward-facing coordinate system!) */
+  {"math-atan", f_math_atan, NORMAL},           /* (math-atan x)      => radians (uncorrected for quadrtant) */
+  {"math-atan2", f_math_atan2, NORMAL},         /* (math-atan y x)    => radians (with quadrant in a top-left coordinate system) */
   // Boolean logic
   {"<",        f_lt,      NORMAL},              /* (< n1 n2) => #t if n1<n2 else () */
   {"iso",      f_iso,     NORMAL},              /* (iso x y) => structural equality */
