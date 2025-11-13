@@ -14,6 +14,47 @@
 (define >= (lambda (x y) (not (< x y))))
 (define = (lambda (x y) (iso (- x y) 0)))
 
+
+; Trigonometry and degree<->radian conversion (lisp-sdl3.c has radian trig)
+(define PI  3.14159265359)
+(define TAU (* PI 2))
+(define HALF_PI (/ PI 2))
+
+(define DEGPERRAD (/ 180 PI))
+(define RADPERDEG (/ PI 180))
+
+
+(define math-rad-to-deg
+    (lambda (rad)
+        (* rad DEGPERRAD)))
+
+(define math-deg-to-rad
+    (lambda (deg)
+        (* deg RADPERDEG)))
+
+(define math-cos-deg
+    (lambda (deg)
+        (math-cos (* deg RADPERDEG))))
+
+(define math-sin-deg
+    (lambda (deg)
+        (math-sin (* deg RADPERDEG))))
+
+(define math-tan-deg
+    (lambda (deg)
+        (math-tan (* deg RADPERDEG))))
+
+(define math-atan-deg
+    (lambda (x)
+        (* (math-atan x) DEGPERRAD)))
+
+(define math-atan2-deg
+    (lambda (y x)
+        (*
+            (math-atan2 x y) ; emits radians
+            DEGPERRAD)))
+
+; Bounding and factoring arithmetic helpers
 (define abs
     (lambda (n)
         (if (< n 0)
@@ -230,22 +271,3 @@
     (function    ,(<< 1 9))
     (accel      ,local-accel)
 ))
-
-(load "keybindings-us-qwerty.lisp")
-
-(def ctrl-down? ()
-  (or (key-down? (alref 'lctrl scancodes))
-      (key-down? (alref 'rctrl scancodes))))
-
-(def alt-down? ()
-  (or (key-down? (alref 'lalt scancodes))
-      (key-down? (alref 'ralt scancodes))))
-
-(def shift-down? ()
-  (or (key-down? (alref 'lshift scancodes))
-      (key-down? (alref 'rshift scancodes))))
-
-(def key (scancode)
-  (if (shift-down?)
-    (alref scancode shifted-keys)
-    (alref scancode keys)))
