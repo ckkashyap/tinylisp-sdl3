@@ -271,22 +271,3 @@
     (function    ,(<< 1 9))
     (accel      ,local-accel)
 ))
-
-(load "keybindings-us-qwerty.lisp")
-
-(def ctrl-down? ()
-  (or (key-down? (alref 'lctrl scancodes))
-      (key-down? (alref 'rctrl scancodes))))
-
-(def alt-down? ()
-  (or (key-down? (alref 'lalt scancodes))
-      (key-down? (alref 'ralt scancodes))))
-
-(def shift-down? ()
-  (or (key-down? (alref 'lshift scancodes))
-      (key-down? (alref 'rshift scancodes))))
-
-(def key (scancode)
-  (if (shift-down?)
-    (alref scancode shifted-keys)
-    (alref scancode keys)))
