@@ -86,10 +86,6 @@
   (color 255 255 100)
   (text 20 20 "Keyboard and Mouse Input Demo")
 
-  ; cursor crosshair at mouse position
-  (color 100 200 255)
-  (crosshair (mouse-x) (mouse-y) 20 1)
-
   ; mouse button states
   (color 200 200 200)
   (text 20 60 "Mouse Buttons:")
@@ -154,6 +150,12 @@
   (color 150 150 150)
   (text 20 340 "Move mouse and press keys/buttons")
   (text 20 370 "Crosshair follows mouse position")
+
+  ; Draw cursors last to make sure they render over the rest
+
+  ; cursor crosshair at mouse position
+  (color 100 200 255)
+  (crosshair (mouse-x) (mouse-y) 20 1)
 
   ; draw a translucent box around the mouse when left button is pressed
   (when (mouse-button? 1)
