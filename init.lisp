@@ -248,6 +248,7 @@
   (awhen (assoc key h)
     (car it)))
 
+
 (define platform (get-platform))
 
 (define local-accel
@@ -271,3 +272,10 @@
     (function    ,(<< 1 9))
     (accel      ,local-accel)
 ))
+
+; Non-letter, non-"extended" keys have this base padding:
+; https://wiki.libsdl.org/SDL3/SDL_Keycode
+
+(def key-mask-hi (base) (| 0x40000000 base))
+; Generated from SDL_keycode.h
+(load "init_keys.lisp")
