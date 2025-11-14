@@ -278,4 +278,4 @@
 
 (def key-mask-hi (base) (| 0x40000000 base))
 ; Generated from SDL_keycode.h
-(load "init_keys.lisp")
+(load "init_keycode.lisp")
