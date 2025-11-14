@@ -81,25 +81,6 @@
    (show-key-status keycode str x y w h))
 
 
-; Non-letter, non-"extended" keys have this base padding:
-; https://wiki.libsdl.org/SDL3/SDL_Keycode
-;
-(define K_UP    (| 0x40000000 0x52))
-(define K_LEFT  (| 0x40000000 0x50))
-(define K_RIGHT (| 0x40000000 0x4f))
-(define K_DOWN  (| 0x40000000 0x51))
-
-; "Cannot apply" ?
-; (def hi-mask (base) (| 0x40000000 base))
-
-(define K_W 0x77)
-(define K_A 0x61)
-(define K_S 0x73)
-(define K_D 0x64)
-
-(define K_SPACE 0x20)
-
-
 (def draw ()
   (color 30 30 40)
   (clear)
