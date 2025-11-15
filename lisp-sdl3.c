@@ -155,11 +155,11 @@ L nil, tru, env;
 uint32_t used[(P+63)/64];
 
 /* mark-sweep garbage collector recycles cons pair pool cells, finds and marks cells that are used */
-void mark(I i) {
+void gc_mark(I i) {
   while (!(used[i/64] & 1 << i/2%32)) {         /* while i'th cell pair is not used in the pool */
     used[i/64] |= 1 << i/2%32;                  /* mark i'th cell pair as used */
     if ((T(cell[i]) & ~(CONS^MACR)) == CONS)    /* recursively mark car cell[i] if car refers to a pair */
-      mark(ord(cell[i]));
+      gc_mark(ord(cell[i]));
     if ((T(cell[i+1]) & ~(CONS^MACR)) != CONS)  /* if cdr cell[i+1] is not a pair, then break and return */
       break;
     i = ord(cell[i+1]);                         /* iteratively mark cdr cell[i+1] */
@@ -167,7 +167,7 @@ void mark(I i) {
 }
 
 /* mark-sweep garbage collector recycles cons pair pool cells, returns total number of free cells in the pool */
-I sweep() {
+I gc_sweep() {
   I i, j;
   for (fp = 0, i = P/2, j = 0; i--; ) {         /* for each cons pair (two cells) in the pool, from top to bottom */
     if (!(used[i/32] & 1 << i%32)) {            /* if the cons pair cell[2*i] and cell[2*i+1] are not used */
@@ -180,14 +180,14 @@ I sweep() {
 }
 
 /* add i'th cell to the linked list of cells that refer to the same atom/string */
-void chain(I i) {
+void gc_chain(I i) {
   I k = *(I*)(A+ord(cell[i])-Z);                /* atom/string link k is the k'th cell that uses the atom/string */
   *(I*)(A+ord(cell[i])-Z) = i;                  /* add k'th cell to the linked list of atom/string cells */
   cell[i] = box(T(cell[i]), k);                 /* by updating the i'th cell atom/string ordinal to k */
 }
 
 /* compacting garbage collector recycles heap by removing unused atoms/strings and by moving used ones */
-void compact() {
+void gc_compact() {
   I i, j, k, l, n;
   for (i = H; i < hp; i += n+Z) {               /* for each atom/string set its linked lists sentinel (end of list) */
     n = *(I*)(A+i);                             /* get the atom/string size > 0 (data size + 1 for zero byte) */
@@ -195,10 +195,10 @@ void compact() {
   }
   for (i = 0; i < P; ++i)                       /* add each used atom/string cell in the pool to its linked list */
     if (used[i/64] & 1 << i/2%32 && (T(cell[i]) & ~(ATOM^STRG)) == ATOM)
-      chain(i);
+      gc_chain(i);
   for (i = sp; i < N; ++i)                      /* add each used atom/string cell on the stack to its linked list */
     if ((T(cell[i]) & ~(ATOM^STRG)) == ATOM)
-      chain(i);
+      gc_chain(i);
   for (i = H, j = hp, hp = H; i < j; i += n) {  /* for each atom/string on the heap */
     for (k = *(I*)(A+i), l = H; k < H || k > j; k = l) {
       l = ord(cell[k]);
@@ -220,12 +220,12 @@ I gc() {
   BREAK_OFF;                                    /* do not interrupt GC */
   memset(used, 0, sizeof(used));                /* clear all used[] bits */
   if (T(env) == CONS)
-    mark(ord(env));                             /* mark all globally-used cons cell pairs referenced from env list */
+    gc_mark(ord(env));                          /* mark all globally-used cons cell pairs referenced from env list */
   for (i = sp; i < N; ++i)
     if ((T(cell[i]) & ~(CONS^MACR)) == CONS)
-      mark(ord(cell[i]));                       /* mark all cons cell pairs referenced from the stack */
-  i = sweep();                                  /* remove unused cons cell pairs from the pool */
-  compact();                                    /* remove unused atoms and strings from the heap */
+      gc_mark(ord(cell[i]));                    /* mark all cons cell pairs referenced from the stack */
+  i = gc_sweep();                               /* remove unused cons cell pairs from the pool */
+  gc_compact();                                 /* remove unused atoms and strings from the heap */
   BREAK_ON;                                     /* enable interrupt */
   return i ? i : err((int) ERR_OUT_OF_MEM);
 }
@@ -1687,7 +1687,7 @@ int main(int argc, char **argv) {
   out = stdout;
   if (setjmp(jb))                               /* if something goes wrong before REPL, it is fatal */
     abort();
-  sweep();                                      /* clear the pool and heap */
+  gc_sweep();                                   /* clear the pool and heap */
   nil = box(NIL, 0);                            /* set the constant nil (empty list) */
   tru = atom("#t");                             /* set the constant #t */
   env = pair(tru, tru, nil);                    /* create environment with symbolic constant #t */
