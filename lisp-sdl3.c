@@ -1826,7 +1826,6 @@ int main(int argc, char **argv) {
           CAR(CDR(CDR(key_press_args))) = event.key.repeat ? tru : nil;
           CAR(CDR(CDR(CDR(key_press_args)))) = num(event.key.scancode);
           eval(key_press_expr, env);
-
         } else {
           errorInLocation("key-press", catch);
         }
@@ -1838,7 +1837,6 @@ int main(int argc, char **argv) {
           modifiers = event.key.mod;
           CAR(CDR(key_release_args)) = num((int) modifiers);
           CAR(CDR(CDR(CDR(key_release_args)))) = num(event.key.scancode);
-
           eval(key_release_expr, env);
         } else {
           errorInLocation("key-release", catch);
