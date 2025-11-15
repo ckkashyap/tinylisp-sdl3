@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Reads SDL_keycode.h to generate a init_keycodes.lisp file.
+"""Reads SDL_keycode.h to generate a init-keycodes.lisp file.
 
 Requires: Python 3.10+
 
 Pass --search-dir DIR as many times as needed to add search
 directories when the defaults don't work.
 
-The init_keycodes.lisp file is included by init.lisp as a
+The init-keycodes.lisp file is included by init.lisp as a
 default keymap.
 """
 from __future__ import annotations
@@ -103,7 +103,7 @@ def parse_output_stream(raw: str) -> Path | "io.TextIOBase":
 
 parser.add_argument(
     "--output-file",
-    default="init_keycodes.lisp", type=parse_output_stream,
+    default="init-keycodes.lisp", type=parse_output_stream,
     help="Pass - to write to stdout or a filename.")
 
 parser.add_argument("--search-dir",
