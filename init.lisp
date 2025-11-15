@@ -18,41 +18,41 @@
 ; Trigonometry and degree<->radian conversion (lisp-sdl3.c has radian trig)
 (define PI  3.14159265359)
 (define TAU (* PI 2))
-(define HALF_PI (/ PI 2))
+(define HALF-PI (/ PI 2))
 
-(define DEGPERRAD (/ 180 PI))
-(define RADPERDEG (/ PI 180))
+(define DEG-PER-RAD (/ 180 PI))
+(define RAD-PER-DEG (/ PI 180))
 
 
 (define math-rad-to-deg
     (lambda (rad)
-        (* rad DEGPERRAD)))
+        (* rad DEG-PER-RAD)))
 
 (define math-deg-to-rad
     (lambda (deg)
-        (* deg RADPERDEG)))
+        (* deg RAD-PER-DEG)))
 
 (define math-cos-deg
     (lambda (deg)
-        (math-cos (* deg RADPERDEG))))
+        (math-cos (* deg RAD-PER-DEG))))
 
 (define math-sin-deg
     (lambda (deg)
-        (math-sin (* deg RADPERDEG))))
+        (math-sin (* deg RAD-PER-DEG))))
 
 (define math-tan-deg
     (lambda (deg)
-        (math-tan (* deg RADPERDEG))))
+        (math-tan (* deg RAD-PER-DEG))))
 
 (define math-atan-deg
     (lambda (x)
-        (* (math-atan x) DEGPERRAD)))
+        (* (math-atan x) DEG-PER-RAD)))
 
 (define math-atan2-deg
     (lambda (y x)
         (*
             (math-atan2 x y) ; emits radians
-            DEGPERRAD)))
+            DEG-PER-RAD)))
 
 ; Bounding and factoring arithmetic helpers
 (define abs
@@ -252,28 +252,28 @@
     (car it)))
 
 
-(define platform (get-platform))
+(define PLATFORM (get-platform))
 
-(define local-accel
+(define LOCAL-ACCEL
     (if (or
-          (iso platform "macOS")
-          (iso platform "iOS"))
-      (<< 1 1) ; Ctrl key
+          (iso PLATFORM "macOS")
+          (iso PLATFORM "iOS"))
+      (<< 1 1)  ; Ctrl key
       (<< 1 5)) ; Command key on mac
 )
 
 (define 'mod-keys `(
-    (shift       ,(<< 1 0))
-    (ctrl        ,(<< 1 1))
-    (alt         ,(<< 1 2))
-    (capslock    ,(<< 1 3))
-    (numlock     ,(<< 1 4))
-    (windows     ,(<< 1 5))
-    (command     ,(<< 1 6))
-    (option      ,(<< 1 7))
-    (scrolllock  ,(<< 1 8))
-    (function    ,(<< 1 9))
-    (accel      ,local-accel)
+    (SHIFT       ,(<< 1 0))
+    (CTRL        ,(<< 1 1))
+    (ALT         ,(<< 1 2))
+    (CAPSLOCK    ,(<< 1 3))
+    (NUMLOCK     ,(<< 1 4))
+    (WINDOWS     ,(<< 1 5))
+    (COMMAND     ,(<< 1 6))
+    (OPTION      ,(<< 1 7))
+    (SCROLLOCK   ,(<< 1 8))
+    (FUNCTION    ,(<< 1 9))
+    (ACCEL       ,LOCAL-ACCEL)
 ))
 
 ; Non-letter, non-"extended" keys have this base padding:
