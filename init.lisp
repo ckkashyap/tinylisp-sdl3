@@ -102,6 +102,9 @@
             t
             (nthcdr (cdr t) (- n 1)))))
 (define nth (lambda (t n) (car (nthcdr t n))))
+(define set-nth!
+    (lambda (t n v)
+      (set-car! (nthcdr t n) v)))
 (define reverse-tr
     (lambda (r t)
         (if t
