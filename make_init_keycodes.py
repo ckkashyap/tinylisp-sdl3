@@ -103,7 +103,7 @@ def parse_output_stream(raw: str) -> Path | "io.TextIOBase":
 
 parser.add_argument(
     "--output-file",
-    default="init_keycode.lisp", type=parse_output_stream,
+    default="init_keycodes.lisp", type=parse_output_stream,
     help="Pass - to write to stdout or a filename.")
 
 parser.add_argument("--search-dir",
