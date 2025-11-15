@@ -304,7 +304,7 @@ def extract_key_defs(source: str) -> DefsDict:
 
 def print_key_defs(defs: DefsDict, file=sys.stdout):
     for k, v in defs.items():
-        line_items = [k, str(v)]
+        line_items = [k.replace('_', '-'), str(v)]
 
         formatted = _listwrap(
             line_items,

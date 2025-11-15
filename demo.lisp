@@ -113,13 +113,13 @@
   (color 200 200 200)
   (text 20 110 "WASD Keys:")
 
-  (show-dir-status K_W "W"
+  (show-dir-status K-W "W"
     253 105 40 35)
-  (show-dir-status K_A "A"
+  (show-dir-status K-A "A"
     223 145 30 35)
-  (show-dir-status K_S "S"
+  (show-dir-status K-S "S"
     259 145 30 35)
-  (show-dir-status K_D "D"
+  (show-dir-status K-D "D"
     295 145 30 35)
 
   (color 200 200 200)
@@ -131,19 +131,19 @@
   ; "→" : Rightwards Arrow  (https://www.compart.com/en/unicode/U+2192)
   ; "↓" : Downwards Arrow   (https://www.compart.com/en/unicode/U+2193)
 
-  (show-dir-status K_UP    "↑"
+  (show-dir-status K-UP    "↑"
     260 195 40 35)
-  (show-dir-status K_LEFT  "←"
+  (show-dir-status K-LEFT  "←"
     200 235 50 35)
-  (show-dir-status K_DOWN  "↓"
+  (show-dir-status K-DOWN  "↓"
     255 235 65 35)
-  (show-dir-status K_RIGHT "→"
+  (show-dir-status K-RIGHT "→"
     325 235 65 35)
 
   ; (text 20 290 "Spacebar:")
 
   (color 200 200 200)
-  (show-key-status K_SPACE ""
+  (show-key-status K-SPACE ""
      200 285 190 35)
 
   ; instructions
