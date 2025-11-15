@@ -1668,12 +1668,12 @@ int main(int argc, char **argv) {
   printf("Callbacks:\n");
   printf("  (define draw (lambda () ...))     - called each frame\n");
   printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
-  printf("  (define keypressed (lambda (keycode modifiers isrepeat scancode) ...))\n");
-  printf("  (define keyreleased (lambda (keycode modifiers scancode) ...))\n");
-  printf("  (define mousepressed (lambda (x y button) ...))\n");
-  printf("  (define mousereleased (lambda (x y button) ...))\n");
-  printf("  (define mousemoved (lambda (x y dx dy) ...))\n");
-  printf("  (define wheelmoved (lambda (x y) ...))\n");
+  printf("  (define key-press (lambda (keycode modifiers isrepeat scancode) ...))\n");
+  printf("  (define key-release (lambda (keycode modifiers scancode) ...))\n");
+  printf("  (define mouse-press (lambda (x y button) ...))\n");
+  printf("  (define mouse-release (lambda (x y button) ...))\n");
+  printf("  (define mouse-move (lambda (x y dx dy) ...))\n");
+  printf("  (define mouse-wheel-move (lambda (x y) ...))\n");
   printf("\n");
   printf("Application state:\n");
   printf("  (quit)                      - quit the program and close the window.\n");
@@ -1695,12 +1695,12 @@ int main(int argc, char **argv) {
   /* Callback symbols */
   L draw_sym = atom("draw");
   L update_sym = atom("update");
-  L keypressed_sym = atom("keypressed");
-  L keyreleased_sym = atom("keyreleased");
-  L mousepressed_sym = atom("mousepressed");
-  L mousereleased_sym = atom("mousereleased");
-  L mousemoved_sym = atom("mousemoved");
-  L wheelmoved_sym = atom("wheelmoved");
+  L key_press_sym = atom("key-press");
+  L key_release_sym = atom("key-release");
+  L mouse_press_sym = atom("mouse-press");
+  L mouse_release_sym = atom("mouse-release");
+  L mouse_move_sym = atom("mouse-move");
+  L mouse_wheel_move_sym = atom("mouse-wheel-move");
 
   /* Pre-allocate callback expressions and protect from GC */
   L draw_expr = cons(draw_sym, nil);
@@ -1710,29 +1710,29 @@ int main(int argc, char **argv) {
   L update_expr = cons(update_sym, update_args);
   env = pair(atom("__update_expr__"), update_expr, env);
 
-  L keypressed_args = cons(num(0), cons(num(0), cons(nil, cons(num(0), nil))));
-  L keypressed_expr = cons(keypressed_sym, keypressed_args);
-  env = pair(atom("__keypressed_expr__"), keypressed_expr, env);
+  L key_press_args = cons(num(0), cons(num(0), cons(nil, cons(num(0), nil))));
+  L key_press_expr = cons(key_press_sym, key_press_args);
+  env = pair(atom("__key_press_expr__"), key_press_expr, env);
 
-  L keyreleased_args = cons(num(0), cons(num(0), cons(num(0), nil)));
-  L keyreleased_expr = cons(keyreleased_sym, keyreleased_args);
-  env = pair(atom("__keyreleased_expr__"), keyreleased_expr, env);
+  L key_release_args = cons(num(0), cons(num(0), cons(num(0), nil)));
+  L key_release_expr = cons(key_release_sym, key_release_args);
+  env = pair(atom("__key_release_expr__"), key_release_expr, env);
 
-  L mousepressed_args = cons(num(0), cons(num(0), cons(nil, nil)));
-  L mousepressed_expr = cons(mousepressed_sym, mousepressed_args);
-  env = pair(atom("__mousepressed_expr__"), mousepressed_expr, env);
+  L mouse_press_args = cons(num(0), cons(num(0), cons(nil, nil)));
+  L mouse_press_expr = cons(mouse_press_sym, mouse_press_args);
+  env = pair(atom("__mouse_press_expr__"), mouse_press_expr, env);
 
-  L mousereleased_args = cons(num(0), cons(num(0), cons(num(0), nil)));
-  L mousereleased_expr = cons(mousereleased_sym, mousereleased_args);
-  env = pair(atom("__mousereleased_expr__"), mousereleased_expr, env);
+  L mouse_release_args = cons(num(0), cons(num(0), cons(num(0), nil)));
+  L mouse_release_expr = cons(mouse_release_sym, mouse_release_args);
+  env = pair(atom("__mouse_release_expr__"), mouse_release_expr, env);
 
-  L mousemoved_args = cons(num(0), cons(num(0), cons(num(0), cons(num(0), nil))));
-  L mousemoved_expr = cons(mousemoved_sym, mousemoved_args);
-  env = pair(atom("__mousemoved_expr__"), mousemoved_expr, env);
+  L mouse_move_args = cons(num(0), cons(num(0), cons(num(0), cons(num(0), nil))));
+  L mouse_move_expr = cons(mouse_move_sym, mouse_move_args);
+  env = pair(atom("__mouse_move_expr__"), mouse_move_expr, env);
 
-  L wheelmoved_args = cons(num(0), cons(num(0), nil));
-  L wheelmoved_expr = cons(wheelmoved_sym, wheelmoved_args);
-  env = pair(atom("__wheelmoved_expr__"), wheelmoved_expr, env);
+  L mouse_wheel_move_args = cons(num(0), cons(num(0), nil));
+  L mouse_wheel_move_expr = cons(mouse_wheel_move_sym, mouse_wheel_move_args);
+  env = pair(atom("__mouse_wheel_move_expr__"), mouse_wheel_move_expr, env);
 
   /* Load init file */
   noisy_load("init.lisp");
@@ -1817,77 +1817,77 @@ int main(int argc, char **argv) {
       if (event.type == SDL_EVENT_QUIT)
         running = false;
 
-      if (event.type == SDL_EVENT_KEY_DOWN && bound(keypressed_sym, env)) {
+      if (event.type == SDL_EVENT_KEY_DOWN && bound(key_press_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          // printf("  (define keypressed (lambda (keycode modifiers isrepeat scancode) ...))\n");
-          CAR(keypressed_args) = num(event.key.key);
+          // printf("  (define key-press (lambda (keycode modifiers isrepeat scancode) ...))\n");
+          CAR(key_press_args) = num(event.key.key);
           modifiers = event.key.mod;
-          CAR(CDR(keypressed_args)) = num((int) modifiers);
-          CAR(CDR(CDR(keypressed_args))) = event.key.repeat ? tru : nil;
-          CAR(CDR(CDR(CDR(keypressed_args)))) = num(event.key.scancode);
-          eval(keypressed_expr, env);
+          CAR(CDR(key_press_args)) = num((int) modifiers);
+          CAR(CDR(CDR(key_press_args))) = event.key.repeat ? tru : nil;
+          CAR(CDR(CDR(CDR(key_press_args)))) = num(event.key.scancode);
+          eval(key_press_expr, env);
 
         } else {
-          errorInLocation("keypressed", catch);
+          errorInLocation("key-press", catch);
         }
       }
 
-      if (event.type == SDL_EVENT_KEY_UP && bound(keyreleased_sym, env)) {
+      if (event.type == SDL_EVENT_KEY_UP && bound(key_release_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(keyreleased_args) = num(event.key.key);
+          CAR(key_release_args) = num(event.key.key);
           modifiers = event.key.mod;
-          CAR(CDR(keyreleased_args)) = num((int) modifiers);
-          CAR(CDR(CDR(CDR(keyreleased_args)))) = num(event.key.scancode);
+          CAR(CDR(key_release_args)) = num((int) modifiers);
+          CAR(CDR(CDR(CDR(key_release_args)))) = num(event.key.scancode);
 
-          eval(keyreleased_expr, env);
+          eval(key_release_expr, env);
         } else {
-          errorInLocation("keyreleased", catch);
+          errorInLocation("key-release", catch);
         }
       }
 
-      if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && bound(mousepressed_sym, env)) {
+      if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && bound(mouse_press_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(mousepressed_args) = num((int)event.button.x);
-          CAR(CDR(mousepressed_args)) = num((int)event.button.y);
-          CAR(CDR(CDR(mousepressed_args))) = num(event.button.button);
-          eval(mousepressed_expr, env);
+          CAR(mouse_press_args) = num((int)event.button.x);
+          CAR(CDR(mouse_press_args)) = num((int)event.button.y);
+          CAR(CDR(CDR(mouse_press_args))) = num(event.button.button);
+          eval(mouse_press_expr, env);
         } else {
-          errorInLocation("mousepressed", catch);
+          errorInLocation("mouse-press", catch);
         }
       }
 
-      if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && bound(mousereleased_sym, env)) {
+      if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && bound(mouse_release_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(mousereleased_args) = num((int)event.button.x);
-          CAR(CDR(mousereleased_args)) = num((int)event.button.y);
-          CAR(CDR(CDR(mousereleased_args))) = num(event.button.button);
-          eval(mousereleased_expr, env);
+          CAR(mouse_release_args) = num((int)event.button.x);
+          CAR(CDR(mouse_release_args)) = num((int)event.button.y);
+          CAR(CDR(CDR(mouse_release_args))) = num(event.button.button);
+          eval(mouse_release_expr, env);
         } else {
-          errorInLocation("mousereleased", catch);
+          errorInLocation("mouse-release", catch);
         }
       }
 
-      if (event.type == SDL_EVENT_MOUSE_MOTION && bound(mousemoved_sym, env)) {
+      if (event.type == SDL_EVENT_MOUSE_MOTION && bound(mouse_move_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
-          CAR(mousemoved_args) = num((int)event.motion.x);
-          CAR(CDR(mousemoved_args)) = num((int)event.motion.y);
-          CAR(CDR(CDR(mousemoved_args))) = num((int)event.motion.xrel);
-          CAR(CDR(CDR(CDR(mousemoved_args)))) = num((int)event.motion.yrel);
-          eval(mousemoved_expr, env);
+          CAR(mouse_move_args) = num((int)event.motion.x);
+          CAR(CDR(mouse_move_args)) = num((int)event.motion.y);
+          CAR(CDR(CDR(mouse_move_args))) = num((int)event.motion.xrel);
+          CAR(CDR(CDR(CDR(mouse_move_args)))) = num((int)event.motion.yrel);
+          eval(mouse_move_expr, env);
         } else {
-          errorInLocation("mousemoved", catch);
+          errorInLocation("mouse-move", catch);
         }
       }
 
-      if (event.type == SDL_EVENT_MOUSE_WHEEL && bound(wheelmoved_sym, env)) {
+      if (event.type == SDL_EVENT_MOUSE_WHEEL && bound(mouse_wheel_move_sym, env)) {
         if ((catch = setjmp(jb)) == 0) {
           mouse_wheel_x += event.wheel.x;
           mouse_wheel_y += event.wheel.y;
-          CAR(wheelmoved_args) = num((int)event.wheel.x);
-          CAR(CDR(wheelmoved_args)) = num((int)event.wheel.y);
-          eval(wheelmoved_expr, env);
+          CAR(mouse_wheel_move_args) = num((int)event.wheel.x);
+          CAR(CDR(mouse_wheel_move_args)) = num((int)event.wheel.y);
+          eval(mouse_wheel_move_expr, env);
         } else {
-          errorInLocation("wheelmoved", catch);
+          errorInLocation("mouse-wheel-move", catch);
         }
       }
     }
