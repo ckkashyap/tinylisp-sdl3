@@ -1641,6 +1641,7 @@ int main(int argc, char **argv) {
 
   SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
   current_font = TTF_OpenFont("DejaVuSans", 20);
+  SDL_StartTextInput(sdl_window);
 
   printf("Available graphics commands:\n");
   printf("  (clear)             - clear screen with current color\n");
@@ -1669,6 +1670,7 @@ int main(int argc, char **argv) {
   printf("  (define draw (lambda () ...))     - called each frame\n");
   printf("  (define update (lambda (dt) ...)) - called each frame with delta time\n");
   printf("  (define key-press (lambda (keycode modifiers isrepeat scancode) ...))\n");
+  printf("  (define text-input (lambda (text) ...))\n");
   printf("  (define key-release (lambda (keycode modifiers scancode) ...))\n");
   printf("  (define mouse-press (lambda (x y button) ...))\n");
   printf("  (define mouse-release (lambda (x y button) ...))\n");
@@ -1696,6 +1698,7 @@ int main(int argc, char **argv) {
   L draw_sym = atom("draw");
   L update_sym = atom("update");
   L key_press_sym = atom("key-press");
+  L text_input_sym = atom("text-input");
   L key_release_sym = atom("key-release");
   L mouse_press_sym = atom("mouse-press");
   L mouse_release_sym = atom("mouse-release");
@@ -1713,6 +1716,10 @@ int main(int argc, char **argv) {
   L key_press_args = cons(num(0), cons(num(0), cons(nil, cons(num(0), nil))));
   L key_press_expr = cons(key_press_sym, key_press_args);
   env = pair(atom("__key_press_expr__"), key_press_expr, env);
+
+  L text_input_args = cons(nil, nil);
+  L text_input_expr = cons(text_input_sym, text_input_args);
+  env = pair(atom("__text_input_expr__"), text_input_expr, env);
 
   L key_release_args = cons(num(0), cons(num(0), cons(num(0), nil)));
   L key_release_expr = cons(key_release_sym, key_release_args);
@@ -1828,6 +1835,16 @@ int main(int argc, char **argv) {
           eval(key_press_expr, env);
         } else {
           errorInLocation("key-press", catch);
+        }
+      }
+
+      if (event.type == SDL_EVENT_TEXT_INPUT && bound(text_input_sym, env)) {
+        if ((catch = setjmp(jb)) == 0) {
+          // printf("  (define text-input (lambda (text) ...))\n");
+          CAR(text_input_args) = string(event.text.text);
+          eval(text_input_expr, env);
+        } else {
+          errorInLocation("text-input", catch);
         }
       }
 
