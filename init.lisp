@@ -254,14 +254,18 @@
 
 (define PLATFORM (get-platform))
 
+; The mask bit to use for the OS-native keyboard shortcut key
 (define LOCAL-ACCEL
     (if (or
           (iso PLATFORM "macOS")
           (iso PLATFORM "iOS"))
       (<< 1 1)  ; Ctrl key
-      (<< 1 5)) ; Command key on mac
+      (<< 1 6)) ; Command key on mac
 )
 
+; A modifier mask key for key state (may need rework)
+; * Currently follows pyglet's model of key modifiers (https://github.com/pyglet/pyglet/blob/f93b602ea3dde726c6661aa8aaf7400d132f445a/pyglet/window/key.py#MOD_SHIFT)
+; * SDL's view of modifier state masks may differ? (https://wiki.libsdl.org/SDL3/SDL_Keymod)
 (define 'mod-keys `(
     (SHIFT       ,(<< 1 0))
     (CTRL        ,(<< 1 1))
