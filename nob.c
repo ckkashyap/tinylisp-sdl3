@@ -27,28 +27,37 @@ static void append_flags_from_file(Nob_Cmd *cmd, char *flag_file)
     nob_sb_free(sb);
 }
 
-const char *backtick(Nob_Cmd *cmd)
+const int backtick(Nob_Cmd *cmd, Nob_Cmd *append_to_command)
 {
-    char *libdir_tmp = nob_temp_sprintf("sdl_libdir.tmp");
-    if (!nob_cmd_run(cmd, .stdout_path = libdir_tmp))
+    char *tmp_output_file = nob_temp_sprintf("nob_backtick_output.tmp");
+    if (!nob_cmd_run(cmd, .stdout_path = tmp_output_file))
     {
         nob_log(NOB_ERROR, "Failed to run %s", cmd->items[0]);
-        return NULL;
+        return 0;
     }
 
-    Nob_String_Builder libdir_sb = {0};
-    if (!nob_read_entire_file(libdir_tmp, &libdir_sb))
+    Nob_String_Builder sb = {0};
+    if (!nob_read_entire_file(tmp_output_file, &sb))
     {
-        nob_log(NOB_ERROR, "Failed to read libdir from %s", libdir_tmp);
-        return NULL;
+        nob_log(NOB_ERROR, "Failed to read from %s", tmp_output_file);
+        return 0;
     }
+    nob_delete_file(tmp_output_file);
 
-    const char *sdl_libdir = nob_temp_sv_to_cstr(nob_sb_to_sv(libdir_sb));
-    nob_sb_free(libdir_sb);
-    nob_delete_file(libdir_tmp);
+    Nob_String_View sv = nob_sb_to_sv(sb);
+    while (sv.count > 0)
+    {
+        Nob_String_View flag = nob_sv_chop_by_delim(&sv, ' ');
+        flag = nob_sv_trim(flag);
+        if (flag.count > 0)
+	{
+            const char *flag_str = nob_temp_sv_to_cstr(flag);
+            nob_cmd_append(append_to_command, flag_str);
+        }
+    }
+    nob_sb_free(sb);
 
-
-    return sdl_libdir;
+    return 1;
 }
 
 int main(int argc, char **argv)
@@ -67,8 +76,17 @@ int main(int argc, char **argv)
     }
 
     Nob_Cmd xx = {0};
-    nob_cmd_append(&xx, "pkg-config", "--libs", "sdl3");
-    printf("----------> %s <-----------\n",backtick(&xx));
+    Nob_Cmd yy = {0};
+    //nob_cmd_append(&xx, "pkg-config", "--libs", "sdl3");
+    nob_cmd_append(&xx, "pkg-config", "-libs", "sdl3");
+    backtick(&xx, &yy);
+    for (int i = 0 ; i < yy.count; i++)
+    {
+	    char *p = yy.items[i];
+
+	    printf("%d %s\n", i, p);
+
+    }
 
 
     // Build
