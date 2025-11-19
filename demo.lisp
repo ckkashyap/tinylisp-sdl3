@@ -33,6 +33,7 @@
 ; UI button colors colors
 (define RGBA-INERT        `(100 100 100 255)) ; A gray for non-activated inputs.
 (define RGBA-DIRECTION-ON `(100 255 100 255)) ; A direction button's pressed.
+(define RGBA-MOUSE-ON     `(255 100 100 255)) ; A mouse button is on.
 
 ; Text element colors
 (define RGBA-LABEL        `(200 200 200 255)) ; A lighter gray for the text fields.
@@ -88,18 +89,21 @@
 ;   x - the x center of the shape in px
 ;   y - the y center of the shape in px
 (def plusshape (x y)
-  (rect (- x 40) (- y 5) 80 10)
-  (rect (- x 5) (- y 40) 10 80))
+  (rect (- x 40) (- y  5) 80 10)
+  (rect (- x  5) (- y 40) 10 80))
 
 
 (def square-around (x y radius)
-  (rect
-    (floor (- x radius))   (floor (- y radius))
-    (ceiling (* 2 radius)) (ceiling (* 2 radius))
-  ))
+  (let
+    (size (ceiling (* 2 radius)))
+    (rect
+      (floor   (- x radius)) (floor   (- y radius))
+      size size
+    )))
 
 
 ; Show a status indicator of the given color with white text.
+; Assumes you set the color beforehand.
 (def show-status (str x y w h)
   (rect x y w h)
   (color . RGBA-WHITE)
@@ -107,10 +111,9 @@
 
 
 (def show-mouse-status (button-id str x y w h)
-  (color
-    (if (mouse-button? button-id) 255 100)  ; red
-      100
-      100)
+  (if (mouse-button? button-id)
+    (color . RGBA-MOUSE-ON)
+    (color . RGBA-INERT))
   (show-status str x y w h))
 
 (def show-key-status (keycode str x y w h)
