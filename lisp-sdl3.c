@@ -665,12 +665,14 @@ L parse_i(InteractiveInput *in) {
 /* the file we are writing to, stdout by default */
 FILE *out;
 
+
 /* SDL3 global variables */
 SDL_Window *sdl_window = NULL;
 SDL_Renderer *sdl_renderer = NULL;
 
 /* Input and rendering state */
 int current_r = 255, current_g = 255, current_b = 255, current_a = 255;
+
 TTF_Font *current_font = NULL;
 float mouse_wheel_x = 0.0f;
 float mouse_wheel_y = 0.0f;
@@ -1716,8 +1718,10 @@ int main(int argc, char **argv) {
   }
 
   /* Create window and renderer */
-  if (!SDL_CreateWindowAndRenderer("Lisp SDL3 Graphics", 800, 600,
-                                     SDL_WINDOW_RESIZABLE, &sdl_window, &sdl_renderer)) {
+  if(!SDL_CreateWindowAndRenderer(
+        "Lisp SDL3 Graphics", 800, 600,
+        SDL_WINDOW_RESIZABLE, &sdl_window, &sdl_renderer
+  )) {
     errorInSDLInit("Window and renderer creation");
     TTF_Quit();
     SDL_Quit();
@@ -1967,8 +1971,6 @@ int main(int argc, char **argv) {
     /* Draw callback */
     if (bound(draw_sym, env)) {
       if ((catch = setjmp(jb)) == 0) {
-        SDL_SetRenderDrawColor(sdl_renderer, 0,0,0, 0);
-        SDL_RenderClear(sdl_renderer);
         eval(draw_expr, env);
         SDL_RenderPresent(sdl_renderer);
       } else {
