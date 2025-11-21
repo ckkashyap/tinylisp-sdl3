@@ -113,7 +113,7 @@ void errorInLocation(const char* where, int e) {
     fprintf(stderr, "\e[31;1mError in %s: %s\e[m\n", where, error);
 }
 
-void errorInSDLInit(const char* where) {
+void errorInSDL(const char* where) {
     fprintf(stderr, "\e[31;1m%s failed: %s\n", where, SDL_GetError());
 }
 
@@ -685,12 +685,12 @@ SDL_Keymod modifiers = SDL_KMOD_NONE;  // Allows key-down? to work
 // struct as quoted pairs?
 L f_sdl_get_renderer_name(L t, L *_) {
     if (! sdl_renderer) {
-        errorInSDLInit("No renderer. Did you initialize a window?");
+        errorInSDL("No renderer. Did you initialize a window?");
         return nil;
     }
     const char* name = SDL_GetRendererName(sdl_renderer);
     if(! name ) {
-        errorInSDLInit("Failed to get renderer name");
+        errorInSDL("Failed to get renderer name");
         return nil;
     }
 
@@ -704,12 +704,12 @@ L f_sdl_save_screenshot(L t, L *_) {
     // Get early exits for lacking pre-reqs out of the way
     L path_atom = nil;
     if (! sdl_renderer) {
-        errorInSDLInit("No renderer. Did you initialize a window?");
+        errorInSDL("No renderer. Did you initialize a window?");
         return nil;
     }
     SDL_Rect viewport;
     if(! SDL_GetRenderViewport(sdl_renderer, &viewport)) {
-        errorInSDLInit("No viewport?");
+        errorInSDL("No viewport?");
         return nil;
     }
     path_atom = car(t);
@@ -719,13 +719,13 @@ L f_sdl_save_screenshot(L t, L *_) {
     // Move on to expensive steps which fail or succeed
     SDL_Surface* screenshot = SDL_RenderReadPixels(sdl_renderer, NULL);
     if (! screenshot) {
-        errorInSDLInit("Failed to get data");
+        errorInSDL("Failed to get data");
         return nil;
     }
 
     const char *path_str = A+ord(path_atom);
     if(! SDL_SaveBMP(screenshot, path_str)) {
-        errorInSDLInit("Failed to save screenshot");
+        errorInSDL("Failed to save screenshot");
         return nil;
     }
 
@@ -1772,12 +1772,12 @@ int main(int argc, char **argv) {
 
   /* Initialize SDL3 */
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    errorInSDLInit("SDL_Init");
+    errorInSDL("SDL_Init");
     return 1;
   }
 
   if (!TTF_Init()) {
-    errorInSDLInit("TTF_Init");
+    errorInSDL("TTF_Init");
     SDL_Quit();
     return 1;
   }
@@ -1787,7 +1787,7 @@ int main(int argc, char **argv) {
         "Lisp SDL3 Graphics", 800, 600,
         SDL_WINDOW_RESIZABLE, &sdl_window, &sdl_renderer
   )) {
-    errorInSDLInit("Window and renderer creation");
+    errorInSDL("Window and renderer creation");
     TTF_Quit();
     SDL_Quit();
     return 1;
