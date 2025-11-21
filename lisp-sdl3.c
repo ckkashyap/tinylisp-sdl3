@@ -1,3 +1,4 @@
+
 /* Lisp with SDL3 graphics by Kartik Agaram 2025 */
 /* Based on lisp.c by Robert A. van Engelen 2022 BSD-3 license (https://github.com/Robert-van-Engelen/lisp)
     - double precision floating point, symbols, strings, lists, proper closures, and macros
@@ -678,6 +679,47 @@ float mouse_wheel_x = 0.0f;
 float mouse_wheel_y = 0.0f;
 SDL_Keymod modifiers = SDL_KMOD_NONE;  // Allows key-down? to work
 
+
+L f_sdl_get_renderer_name(L t, L *_) {
+    L name_atom = nil;
+    if (! sdl_renderer) {
+        errorInSDLInit("Invalid renderer state.");
+    }
+    const char* name = SDL_GetRendererName(sdl_renderer);
+    if (name == NULL) {
+        name_atom = string("unknown render state");      
+    } else {
+        name_atom = string(name);
+    }
+    return name_atom;
+}
+
+
+L f_sdl_save_screenshot(L t, L *_) {
+    L result_code = nil;
+    L text_atom = car(t);
+    if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
+    const char *path_str = A+ord(text_atom);
+
+    if (! sdl_renderer) {
+        errorInSDLInit("No renderer?");
+    }
+    SDL_Rect viewport;
+    if(! SDL_GetRenderViewport(sdl_renderer, &viewport)) {
+        errorInSDLInit("No viewport?");
+    }
+    SDL_Surface* screenshot = SDL_RenderReadPixels(sdl_renderer, NULL);
+    if (! screenshot ) {
+        errorInSDLInit("Failed to get data");
+    }
+    int success = SDL_SaveBMP(screenshot, path_str);
+    SDL_DestroySurface(screenshot);
+    if (! success) {
+       return nil;
+    }
+    return tru;
+}
+
 /* construct a new list of evaluated expressions in list t, i.e. the arguments passed to a function or primitive */
 L eval(L, L);
 L evlis(L t, L e) {
@@ -1259,7 +1301,6 @@ L f_env_get_platform(L t, L *_) {
         return string(platformRaw);
 }
 
-
 L f_window_set_title(L t, L *_) {
    // Set the window title verbatim (expects valid UTF-8)
    L text_atom = car(t);
@@ -1455,6 +1496,8 @@ PrimitiveDef prim[] = {
   {"clear", f_sdl_clear, NORMAL, "(clear) -- clear screen with current color", CAT_GUI_DRAW},
   {"present", f_sdl_present, NORMAL, "(present) -- update display", CAT_GUI_DRAW},
   {"color", f_sdl_color, NORMAL, "(color r g b [a]) -- set drawing color (0-255)", CAT_GUI_DRAW},
+  {"get-renderer-name", f_sdl_get_renderer_name, NORMAL, "(get-renderer-name) -- get a string for the renderer name or nil)", CAT_GUI_MISC},
+  {"save-screenshot", f_sdl_save_screenshot, NORMAL, "(save-screenshot path) ==> #t if success, nil if not.", CAT_GUI_MISC},
   {"rect", f_sdl_rect, NORMAL, "(rect x y w h) -- draw filled rectangle", CAT_GUI_DRAW},
   {"line", f_sdl_line, NORMAL, "(line x1 y1 x2 y2) -- draw line", CAT_GUI_DRAW},
   {"delay", f_sdl_delay, NORMAL, "(delay ms) -- delay milliseconds", CAT_GUI_DRAW},
@@ -1728,6 +1771,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  
   SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
   current_font = TTF_OpenFont("DejaVuSans", 20);
   print_help();
@@ -1985,8 +2029,10 @@ int main(int argc, char **argv) {
   rl_callback_handler_remove();
   if (current_font)
     TTF_CloseFont(current_font);
-  SDL_DestroyRenderer(sdl_renderer);
-  SDL_DestroyWindow(sdl_window);
+  if (sdl_renderer)
+    SDL_DestroyRenderer(sdl_renderer);
+  if (sdl_window)
+    SDL_DestroyWindow(sdl_window);
   TTF_Quit();
   SDL_Quit();
   return 0;

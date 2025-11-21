@@ -12,7 +12,11 @@
 ;   * init-keycodes.lisp loaded with K_* keycodes
 ; 2. We can get a window with SDL
 
-(window-set-title "Lisp with SDL3 Graphics (Keyboard and Mouse Input Demo)")
+
+(define RENDERER (get-renderer-name))
+(define APP-TITLE (string "Keyboard and Mouse Input Demo (" RENDERER ")"))
+(window-set-title (string "Lisp with SDL3 Graphics -" APP-TITLE ))
+
 
 (def half (num) ; Get half of num
   (/ num 2))
@@ -133,7 +137,9 @@
   (clear)
 
   (color . RGBA-TITLE)
-  (text 20 20 "Keyboard and Mouse Input Demo")
+  (text 20 20 APP-TITLE);"Keyboard and Mouse Input Demo")
+
+  (color . RGBA-INSTRUCTIONS)
 
   ; mouse button states
   (color . RGBA-LABEL)
@@ -208,6 +214,7 @@
   ; draw a translucent box around the mouse when left button is pressed
   (when (mouse-button? 1)
     (color . RGBA-MOUSE-OVERLAY-1)
+    (save-screenshot "test-1.bmp")
     (square-around (mouse-x) (mouse-y) 60))
 
   ; draw a plus pattern when right button is pressed
