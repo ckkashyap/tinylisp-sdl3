@@ -1280,7 +1280,7 @@ L f_key_down(L t, L *_) {
 }
 
 L f_key_name(L t, L *_) {
-  int keycode = (int)num(car(t)); 
+  int keycode = (int)num(car(t));
   const char* keyNameRaw = SDL_GetKeyName(keycode);
   if(keyNameRaw == 0)
        return nil;
@@ -1324,30 +1324,17 @@ L f_mouse_wheel_y(L t, L *_) {
   return num(mouse_wheel_y);
 }
 
+L f_help(L t, L *_);
+
 typedef enum {
     NORMAL   = 0b00,
     SPECIAL  = 0b01,
-    TAILCALL = 0x10,
-    SPECTAIL = 0x11
-    CallMode_COUNT  = 4
+    TAILCALL = 0b10,
+    SPECTAIL = 0b11,
+    CallMode_COUNT = 0b100
 } CallMode;
 
-
-/* table of Lisp primitives, each has a name s, a function pointer f, and an evaluation mode m */
-
-// A single primitive defintition
-typedef struct {
-  const char     *s;          // The **s**ymbol LISP will bind it to
-  L              (*f)(L, L*); // A function body
-  CallMode       m;           // How a call is handled
-  const char     *help;       // A help string or {0}
-} PrimitiveDef;
-
-typedf
-
 typedef enum {
-    CAT_NONE    = 0
-    CAT_CORE,
     CAT_CORE_BEDROCK,
     CAT_CORE_FLOW,
     CAT_CORE_IOERROR,
@@ -1357,192 +1344,150 @@ typedef enum {
     CAT_MATH_TRIG,
     CAT_GUI_INPUT,
     CAT_GUI_DRAW,
-    CAT_GUI_MISC
-    CAT_NUM_CATEGORIES 
+    CAT_GUI_MISC,
+    CAT_GUI_CALLBACK,
+    CAT_NUM_CATEGORIES
 } PrimitiveHelpCategory;
 
+
+// A single primitive definition
 typedef struct {
-    const char*            heading;
-    const char*            description;
-    const PrimitiveDef*    entries;
+  const char     *symbol;     // The symbol LISP will bind it to
+  L              (*f)(L, L*); // A function body
+  CallMode       m;           // How a call is handled
+  const char     *help;
+  PrimitiveHelpCategory category;
+} PrimitiveDef;
+
+char* PrimitiveCategoryName[] = {
+  "LISP Core: Bedrock",
+  "LISP Core: Control flow",
+  "LISP Core: Input, Output, and Errors",
+  "Math: Basic Arithmetic",
+  "Math: Boolean logic",
+  "Math: Bit-level arithmetic",
+  "Math: Trigonometry",
+  "Graphics Window: Keyboard and Mouse Input",
+  "Graphics Window: Drawing",
+  "Graphics Window: Misc",
+  "Graphics Window: Callbacks",
 };
 
-
-PrimitiveCategory[] categories= {
-  {
-    "LISP Core: Bedrock",
-    "The heart of a LISP system.",
-    {
-      {"type",             f_type,             NORMAL,   "(type x) => <type> value between -1 and 7"},
-      {"eval",             f_ident,            SPECTAIL, "(eval <quoted-expr>) => <value-of-expr>"},
-      {"quote",            f_ident,            SPECIAL,  "(quote <expr>) => <expr> -- protect <expr> from evaluation"},
-      {"cons",             f_cons,             NORMAL,   "(cons x y) => (x . y) -- construct a pair"},
-      {"car",              f_car,              NORMAL,   "(car <pair>) => x -- \"deconstruct\" <pair> (x . y)"},
-      {"cdr",              f_cdr,              NORMAL,   "(cdr <pair>) => y -- \"deconstruct\" <pair> (x . y)"},
-      {"lambda",           f_lambda,           SPECIAL,  "(lambda <parameters> <expr>) => {closure}"},
-      {"macro",            f_macro,            SPECIAL,  "(macro <parameters> <expr>) => [macro]"},
-      {"define",           f_define,           SPECIAL,  "(define <symbol> <expr>) -- globally defines <symbol>"},
-      {"assoc",            f_assoc,            NORMAL,   "(assoc <quoted-symbol> <environment>) => <value-of-symbol>"},
-      {"env",              f_env,              NORMAL,   "(env) => <environment>"},
-      {"let",              f_let,              SPECTAIL, "(let (v1 x1) (v2 x2) ... (vk xk) y) => y with scope of bindings"},
-      {"let*",             f_leta,             SPECTAIL, "(let* (v1 x1) (v2 x2) ... (vk xk) y) => y with scope of bindings"},
-      {"letrec",           f_letrec,           SPECTAIL, "(letrec (v1 x1) (v2 x2) ... (vk xk) y) => y with recursive scope"},
-      {"letrec*",          f_letreca,          SPECTAIL, "(letrec* (v1 x1) (v2 x2) ... (vk xk) y) => y with recursive scope"},
-      {"setq",             f_setq,             SPECIAL,  "(setq <symbol> x) -- changes value of <symbol> in scope to x"},
-      {"set-car!",         f_setcar,           NORMAL,   "(set-car! <pair> x) -- changes car of <pair> to x in memory"},
-      {"set-cdr!",         f_setcdr,           NORMAL,   "(set-cdr! <pair> y) -- changes cdr of <pair> to y in memory"},
-      {0},
-    }
-  },
-  {
-    "LISP Core: Flow control",
-    "Conditional logic. Also known as \"branching\".",
-    {
-      {"list",             f_list,             NORMAL,   "(list x1 x2 ... xk) => (x1 x2 ... xk) -- evaluates x1, x2 ... xk"},
-      {"begin",            f_begin,            SPECTAIL, "(begin x1 x2 ... xk) => xk -- evaluates x1, x2 to xk"},
-      {"while",            f_while,            SPECIAL,  "(while x y1 y2 ... yk) -- while x is not () evaluate y1, y2 ... yk"},
-      {"cond",             f_cond,             SPECTAIL, "(cond (x1 y1) (x2 y2) ... (xk yk)) => yi for first xi!=()"},
-      {"if",               f_if,               SPECTAIL, "(if x y z) => if x!=() then y else z"},
-      {0}
-    }
-  },
-  {
-    "LISP Core: Input, Output, and Errors",
-    "Read/write at the terminal and files, as well as handling problems.",
-    {
-      {"read",             f_read,             NORMAL,   "(read) => <value-of-input>"},
-      {"print",            f_print,            NORMAL,   "(print x1 x2 ... xk) => () -- prints the values x1 x2 ... xk"},
-      {"println",          f_println,          NORMAL,   "(println x1 x2 ... xk) => () -- prints with newline"},
-      {"write",            f_write,            NORMAL,   "(write x1 x2 ... xk) => () -- prints without quoting strings"},
-      {"string",           f_string,           NORMAL,   "(string x1 x2 ... xk) => <string> -- string of x1 x2 ... xk"},
-      {"load",             f_load,             NORMAL,   "(load <name>) -- loads file <name> (an atom or string name)"},
-      {"trace",            f_trace,            SPECIAL,  "(trace flag [<expr>]) -- flag 0=off, 1=on, 2=keypress"},
-      {"catch",            f_catch,            SPECIAL,  "(catch <expr>) => <value-of-expr> if no exception else (ERR . n)"},
-      {"throw",            f_throw,            NORMAL,   "(throw n) -- raise exception error code n (integer != 0)"},
-      {"quit",             f_quit,             NORMAL,   "(quit) -- bye!"},
-      {0}
-    }
-  },
-  {
-    "Math: Basic Arithmetic",
-    "Common math operations on floating point values.",
-      {"+",                f_add,              NORMAL,   "(+ n1 n2 ... nk) => n1+n2+...+nk"},
-      {"-",                f_sub,              NORMAL,   "(- n1 n2 ... nk) => n1-n2-...-nk or -n1 if k=1"},
-      {"*",                f_mul,              NORMAL,   "(* n1 n2 ... nk) => n1*n2*...*nk"},
-      {"/",                f_div,              NORMAL,   "(/ n1 n2 ... nk) => n1/n2/.../nk or 1/n1 if k=1"},
-      {"int",              f_int,              NORMAL,   "(int <integer.frac>) => <integer>"},
-      {"<",                f_lt,               NORMAL,   "(< n1 n2) => #t if n1<n2 else ()"},
-      {0}
-  },
-  {
-    "Math: Boolean logic",
-    "Comparison and logic chaining to build more advanced flow control.",
-    {
-      {"iso",              f_iso,              NORMAL,   "(iso x y) => structural equality"},
-      {"not",              f_not,              NORMAL,   "(not x) => #t if x==() else ()"},
-      {"or",               f_or,               SPECIAL,  "(or x1 x2 ... xk) => #t if any x1 is not () else ()"},
-      {"and",              f_and,              SPECIAL,  "(and x1 x2 ... xk) => #t if all x1 are not () else ()"},
-      {0}
-    }
-  },
-  {
-    "Math: Bit-level arithmetic",
-    "Operate on invidual bits of integer values.",
-    {
-      {"&",                f_bin_and,          NORMAL,   "(& a b) => binary and of values."},
-      {"^",                f_bin_xor,          NORMAL,   "(^ a b) => binary xor of values."},
-      {"|",                f_bin_or,           NORMAL,   "(| a b) => binary or of values."},
-      {">>",               f_bin_shr,          NORMAL,   "(& a b) => shift a right by b bits (both treated as ints)"},
-      {"<<",               f_bin_shl,          NORMAL,   "(& a b) => shift a left by by bits (both treated as ints)"},
-      {0}
-    }
-  },
-  {
-    "Math: Trigonometry",
-    "Calculate angles and directions.\nNOTE: These may vary subtly across platforms. Please see:\nhttps://wiki.libsdl.org/SDL3/SDL_tan",
-    {
-      {"math-cos",         f_math_cos,         NORMAL,   "(math-cos radians) => sine    (note the downward-facing coordinate system!)"},
-      {"math-sin",         f_math_sin,         NORMAL,   "(math-sin radians) => cosine  (note the downward-facing coordinate system!)"},
-      {"math-tan",         f_math_tan,         NORMAL,   "(math-tan radians) => slope   (note the downward-facing coordinate system!)"},
-      {"math-acos",        f_math_acos,        NORMAL,   "(math-acos cosval) => radians (note the downward-facing coordinate system!)"},
-      {"math-asin",        f_math_asin,        NORMAL,   "(math-acos sinval) => radians (note the downward-facing coordinate system!)"},
-      {"math-atan",        f_math_atan,        NORMAL,   "(math-atan x)      => radians (uncorrected for quadrtant)"},
-      {"math-atan2",       f_math_atan2,       NORMAL,   "(math-atan y x)    => radians (with quadrant in a top-left coordinate system)"},
-      {0}
-    }
-  },
-  {
-    "Graphics Window: Keyboard and Mouse Input",
-    {
-      {"key-down?",        f_key_down,         NORMAL,   "(key-down? keycode) -- check if key pressed"},
-      {"key-name",         f_key_name,         NORMAL,   "(key-name keycode) -- get the name for a keycode or \"\" if none known."},
-      {"mouse-x",          f_mouse_x,          NORMAL,   "(mouse-x) -- get mouse X position"},
-      {"mouse-y",          f_mouse_y,          NORMAL,   "(mouse-y) -- get mouse Y position"},
-      {"mouse-button?",    f_mouse_button,     NORMAL,   "(mouse-button? btn) -- check mouse button state"},
-      {"mouse-wheel-x",    f_mouse_wheel_x,    NORMAL,   "(mouse-wheel-x) -- get horizontal wheel movement"},
-      {"mouse-wheel-y",    f_mouse_wheel_y,    NORMAL,   "(mouse-wheel-y) -- get vertical wheel movement"},
-      {0}
-    }
-  },
-  {
-    "Graphics Window: Drawing",
-    "Draw text, lines, and rectangles to the screen.",
-    {
-      {"clear",            f_sdl_clear,        NORMAL,   "(clear) -- clear screen with current color"},
-      {"present",          f_sdl_present,      NORMAL,   "(present) -- update display"},
-      {"color",            f_sdl_color,        NORMAL,   "(color r g b [a]) -- set drawing color (0-255)"},
-      {"rect",             f_sdl_rect,         NORMAL,   "(rect x y w h) -- draw filled rectangle"},
-      {"line",             f_sdl_line,         NORMAL,   "(line x1 y1 x2 y2) -- draw line"},
-      {"delay",            f_sdl_delay,        NORMAL,   "(delay ms) -- delay milliseconds"},
-      {"load-font",        f_load_font,        NORMAL,   "(load-font path size) -- load TrueType font"},
-      {"text",             f_text,             NORMAL,   "(text x y string) -- render text at position"},
-      {"text-width",       f_text_width,       NORMAL,   "(text-width string) -- get text width in pixels"},
-      {"text-height",      f_text_height,      NORMAL,   "(text-height string) -- get text height in pixels"},
-      {0}
-    }
-  },
-  {
-    "Graphics Window: Misc",
-    "Functions without a better category.",
-    {
-      {"window-set-title", f_window_set_title, NORMAL,   "(window-set-title string) set the window title to a string."},
-      {"get-platform",     f_env_get_platform, NORMAL,   "(get-platform) get the SDL3 platform string (\"Windows\", \"macOS\", \"Linux\", etc.)"},
-      {0}
-    }
-  },
-  {
-    "Graphics Window: Callbacks",
-    "Defined categories we'll stub out elsewhere?",
-    {
-     {0}
-    }
-  }
-  {0}
+char* PrimitiveCategoryDesc[] = {
+  "The heart of a LISP system.",
+  "Conditional logic. Also known as \"branching\".",
+  "Read/write at the terminal and files, as well as handling problems.",
+  "Common math operations on floating point values.",
+  "Comparison and logic chaining to build more advanced flow control.",
+  "Operate on invidual bits of integer values.",
+  "Calculate angles and directions.\nNOTE: These may vary subtly across platforms. Please see:\nhttps://wiki.libsdl.org/SDL3/SDL_tan",
+  "Graphics Window: Keyboard and Mouse Input",
+  "Draw text, lines, and rectangles to the screen.",
+  "Functions without a better category.",
+  "\"Backwards\" functions that you define and get called for you.",
 };
 
-
-PrimtiveDef prim[];
+PrimitiveDef prim[] = {
+  {"type", f_type, NORMAL, "(type x) => <type> value between -1 and 7", CAT_CORE_BEDROCK},
+  {"eval", f_ident, SPECTAIL, "(eval <quoted-expr>) => <value-of-expr>", CAT_CORE_BEDROCK},
+  {"quote", f_ident, SPECIAL, "(quote <expr>) => <expr> -- protect <expr> from evaluation", CAT_CORE_BEDROCK},
+  {"cons", f_cons, NORMAL, "(cons x y) => (x . y) -- construct a pair", CAT_CORE_BEDROCK},
+  {"car", f_car, NORMAL, "(car <pair>) => x -- \"deconstruct\" <pair> (x . y)", CAT_CORE_BEDROCK},
+  {"cdr", f_cdr, NORMAL, "(cdr <pair>) => y -- \"deconstruct\" <pair> (x . y)", CAT_CORE_BEDROCK},
+  {"lambda", f_lambda, SPECIAL, "(lambda <parameters> <expr>) => {closure, CAT_CORE_BEDROCK}"},
+  {"macro", f_macro, SPECIAL, "(macro <parameters> <expr>) => [macro]", CAT_CORE_BEDROCK},
+  {"define", f_define, SPECIAL, "(define <symbol> <expr>) -- globally defines <symbol>", CAT_CORE_BEDROCK},
+  {"assoc", f_assoc, NORMAL, "(assoc <quoted-symbol> <environment>) => <value-of-symbol>", CAT_CORE_BEDROCK},
+  {"env", f_env, NORMAL, "(env) => <environment>", CAT_CORE_BEDROCK},
+  {"let", f_let, SPECTAIL, "(let (v1 x1) (v2 x2) ... (vk xk) y) => y with scope of bindings", CAT_CORE_BEDROCK},
+  {"let*", f_leta, SPECTAIL, "(let* (v1 x1) (v2 x2) ... (vk xk) y) => y with scope of bindings", CAT_CORE_BEDROCK},
+  {"letrec", f_letrec, SPECTAIL, "(letrec (v1 x1) (v2 x2) ... (vk xk) y) => y with recursive scope", CAT_CORE_BEDROCK},
+  {"letrec*", f_letreca, SPECTAIL, "(letrec* (v1 x1) (v2 x2) ... (vk xk) y) => y with recursive scope", CAT_CORE_BEDROCK},
+  {"setq", f_setq, SPECIAL, "(setq <symbol> x) -- changes value of <symbol> in scope to x", CAT_CORE_BEDROCK},
+  {"set-car!", f_setcar, NORMAL, "(set-car! <pair> x) -- changes car of <pair> to x in memory", CAT_CORE_BEDROCK},
+  {"set-cdr!", f_setcdr, NORMAL, "(set-cdr! <pair> y) -- changes cdr of <pair> to y in memory", CAT_CORE_BEDROCK},
+  {"list", f_list, NORMAL, "(list x1 x2 ... xk) => (x1 x2 ... xk) -- evaluates x1, x2 ... xk", CAT_CORE_BEDROCK},
+  {"begin", f_begin, SPECTAIL, "(begin x1 x2 ... xk) => xk -- evaluates x1, x2 to xk", CAT_CORE_FLOW},
+  {"while", f_while, SPECIAL, "(while x y1 y2 ... yk) -- while x is not () evaluate y1, y2 ... yk", CAT_CORE_FLOW},
+  {"cond", f_cond, SPECTAIL, "(cond (x1 y1) (x2 y2) ... (xk yk)) => yi for first xi!=()", CAT_CORE_FLOW},
+  {"if", f_if, SPECTAIL, "(if x y z) => if x!=() then y else z", CAT_CORE_FLOW},
+  {"read", f_read, NORMAL, "(read) => <value-of-input>", CAT_CORE_IOERROR},
+  {"print", f_print, NORMAL, "(print x1 x2 ... xk) => () -- prints the values x1 x2 ... xk", CAT_CORE_IOERROR},
+  {"println", f_println, NORMAL, "(println x1 x2 ... xk) => () -- prints with newline", CAT_CORE_IOERROR},
+  {"write", f_write, NORMAL, "(write x1 x2 ... xk) => () -- prints without quoting strings", CAT_CORE_IOERROR},
+  {"string", f_string, NORMAL, "(string x1 x2 ... xk) => <string> -- string of x1 x2 ... xk", CAT_CORE_IOERROR},
+  {"load", f_load, NORMAL, "(load <name>) -- loads file <name> (an atom or string name)", CAT_CORE_IOERROR},
+  {"trace", f_trace, SPECIAL, "(trace flag [<expr>]) -- flag 0=off, 1=on, 2=keypress", CAT_CORE_IOERROR},
+  {"catch", f_catch, SPECIAL, "(catch <expr>) => <value-of-expr> if no exception else (ERR . n)", CAT_CORE_IOERROR},
+  {"throw", f_throw, NORMAL, "(throw n) -- raise exception error code n (integer != 0)", CAT_CORE_IOERROR},
+  {"quit", f_quit, NORMAL, "(quit) -- bye!", CAT_CORE_IOERROR},
+  {"+", f_add, NORMAL, "(+ n1 n2 ... nk) => n1+n2+...+nk", CAT_MATH_BASIC},
+  {"-", f_sub, NORMAL, "(- n1 n2 ... nk) => n1-n2-...-nk or -n1 if k=1", CAT_MATH_BASIC},
+  {"*", f_mul, NORMAL, "(* n1 n2 ... nk) => n1*n2*...*nk", CAT_MATH_BASIC},
+  {"/", f_div, NORMAL, "(/ n1 n2 ... nk) => n1/n2/.../nk or 1/n1 if k=1", CAT_MATH_BASIC},
+  {"int", f_int, NORMAL, "(int <integer.frac>) => <integer>", CAT_MATH_BASIC},
+  {"<", f_lt, NORMAL, "(< n1 n2) => #t if n1<n2 else ()", CAT_MATH_BASIC},
+  {"iso", f_iso, NORMAL, "(iso x y) => structural equality", CAT_MATH_BOOL},
+  {"not", f_not, NORMAL, "(not x) => #t if x==() else ()", CAT_MATH_BOOL},
+  {"or", f_or, SPECIAL, "(or x1 x2 ... xk) => #t if any x1 is not () else ()", CAT_MATH_BOOL},
+  {"and", f_and, SPECIAL, "(and x1 x2 ... xk) => #t if all x1 are not () else ()", CAT_MATH_BOOL},
+  {"&", f_bin_and, NORMAL, "(& a b) => binary and of values.", CAT_MATH_BIT},
+  {"^", f_bin_xor, NORMAL, "(^ a b) => binary xor of values.", CAT_MATH_BIT},
+  {"|", f_bin_or, NORMAL, "(| a b) => binary or of values.", CAT_MATH_BIT},
+  {">>", f_bin_shr, NORMAL, "(& a b) => shift a right by b bits (both treated as ints)", CAT_MATH_BIT},
+  {"<<", f_bin_shl, NORMAL, "(& a b) => shift a left by by bits (both treated as ints)", CAT_MATH_BIT},
+  {"math-cos", f_math_cos, NORMAL, "(math-cos radians) => sine (note the downward-facing coordinate system!)", CAT_MATH_TRIG},
+  {"math-sin", f_math_sin, NORMAL, "(math-sin radians) => cosine (note the downward-facing coordinate system!)", CAT_MATH_TRIG},
+  {"math-tan", f_math_tan, NORMAL, "(math-tan radians) => slope (note the downward-facing coordinate system!)", CAT_MATH_TRIG},
+  {"math-acos", f_math_acos, NORMAL, "(math-acos cosval) => radians (note the downward-facing coordinate system!)", CAT_MATH_TRIG},
+  {"math-asin", f_math_asin, NORMAL, "(math-acos sinval) => radians (note the downward-facing coordinate system!)", CAT_MATH_TRIG},
+  {"math-atan", f_math_atan, NORMAL, "(math-atan x) => radians (uncorrected for quadrant)", CAT_MATH_TRIG},
+  {"math-atan2", f_math_atan2, NORMAL, "(math-atan y x) => radians (with quadrant in a top-left coordinate system)", CAT_MATH_TRIG},
+  {"key-down?", f_key_down, NORMAL, "(key-down? keycode) -- check if key pressed", CAT_GUI_INPUT},
+  {"key-name", f_key_name, NORMAL, "(key-name keycode) -- get the name for a keycode or \"\" if none known.", CAT_GUI_INPUT},
+  {"mouse-x", f_mouse_x, NORMAL, "(mouse-x) -- get mouse X position", CAT_GUI_INPUT},
+  {"mouse-y", f_mouse_y, NORMAL, "(mouse-y) -- get mouse Y position", CAT_GUI_INPUT},
+  {"mouse-button?", f_mouse_button, NORMAL, "(mouse-button? btn) -- check mouse button state", CAT_GUI_INPUT},
+  {"mouse-wheel-x", f_mouse_wheel_x, NORMAL, "(mouse-wheel-x) -- get horizontal wheel movement", CAT_GUI_INPUT},
+  {"mouse-wheel-y", f_mouse_wheel_y, NORMAL, "(mouse-wheel-y) -- get vertical wheel movement", CAT_GUI_INPUT},
+  {"clear", f_sdl_clear, NORMAL, "(clear) -- clear screen with current color", CAT_GUI_DRAW},
+  {"present", f_sdl_present, NORMAL, "(present) -- update display", CAT_GUI_DRAW},
+  {"color", f_sdl_color, NORMAL, "(color r g b [a]) -- set drawing color (0-255)", CAT_GUI_DRAW},
+  {"rect", f_sdl_rect, NORMAL, "(rect x y w h) -- draw filled rectangle", CAT_GUI_DRAW},
+  {"line", f_sdl_line, NORMAL, "(line x1 y1 x2 y2) -- draw line", CAT_GUI_DRAW},
+  {"delay", f_sdl_delay, NORMAL, "(delay ms) -- delay milliseconds", CAT_GUI_DRAW},
+  {"load-font", f_load_font, NORMAL, "(load-font path size) -- load TrueType font", CAT_GUI_DRAW},
+  {"text", f_text, NORMAL, "(text x y string) -- render text at position", CAT_GUI_DRAW},
+  {"text-width", f_text_width, NORMAL, "(text-width string) -- get text width in pixels", CAT_GUI_DRAW},
+  {"text-height", f_text_height, NORMAL, "(text-height string) -- get text height in pixels", CAT_GUI_DRAW},
+  {"window-set-title", f_window_set_title, NORMAL, "(window-set-title string) -- set the window title to a string.", CAT_GUI_MISC},
+  {"get-platform", f_env_get_platform, NORMAL, "(get-platform) -- get the SDL3 platform string (\"Windows\", \"macOS\", \"Linux\", etc.)", CAT_GUI_MISC},
+  {"help", f_help, NORMAL, "(help symbol) -- describe how to use or call symbol, e.g. (help 'text)", CAT_CORE_BEDROCK},
+};
 
 
 void print_help() {
-  HelpCategory* category = &help_categories;
-  for(HelpCategory* category = &help_categories; *category != 0; category++) {
-    printf("%s:\n", category->heading);
-    for(char* entry = category->entries[0]; *entry != 0; entry++) {
-      
+  for (PrimitiveHelpCategory p = 0; p < CAT_NUM_CATEGORIES; p++) {
+    printf("=== %s\n", PrimitiveCategoryName[p]);
+    printf("%s\n", PrimitiveCategoryDesc[p]);
+    for (int i = 0; i < sizeof(prim)/sizeof(prim[0]); i++) {
+      if (prim[i].category == p)
+        printf("* %s\n", prim[i].help);
     }
   }
-  // {
-  //      "Callbacks",
-  //
-  // (define draw (lambda () ...))     - called each frame\n");
-  // (define update (lambda (dt) ...)) - called each frame with delta time\n");
-  // (define keypressed (lambda (keycode modifiers isrepeat scancode) ...))\n");
-  // (define keyreleased (lambda (keycode modifiers scancode) ...))\n");
-  // (define mousepressed (lambda (x y button) ...))\n");
-  // (define mousereleased (lambda (x y button) ...))\n");
-  // (define mousemoved (lambda (x y dx dy) ...))\n");
-  // (define wheelmoved (lambda (x y) ...))\n");
+}
+
+
+L f_help(L t, L *_) {
+  L symbol_a = car(t);
+  char* symbol = A+ord(symbol_a);
+  for (int i = 0; i < sizeof(prim)/sizeof(prim[0]); i++) {
+    if (strcmp(prim[i].symbol, symbol) == 0) {
+      printf("%s\n", prim[i].help);
+      break;
+    }
+  }
+  return nil;
 }
 
 
@@ -1669,7 +1614,7 @@ void printlist(L t) {
 void print(L x) {
   switch (T(x)) {
     case NIL:  fprintf(out, "()");                   break;
-    case PRIM: fprintf(out, "<%s>", prim[ord(x)].s); break;
+    case PRIM: fprintf(out, "<%s>", prim[ord(x)].symbol); break;
     case ATOM: fprintf(out, "%s", A+ord(x));         break;
     case STRG: fprintf(out, "\"%s\"", A+ord(x));     break;
     case CONS: printlist(x);                         break;
@@ -1750,7 +1695,7 @@ void noisy_load(const char *filename) {
 //   if (i >= hp)                                  /* if not found, then copy s to the heap for the new atom */
 //     return nil;
 //   else
-//     return box(ATOM, i); 
+//     return box(ATOM, i);
 // }
 
 /* entry point with Lisp initialization, error handling and REPL */
@@ -1781,6 +1726,7 @@ int main(int argc, char **argv) {
 
   SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
   current_font = TTF_OpenFont("DejaVuSans", 20);
+  print_help();
 
   /* Initialize Lisp environment */
   out = stdout;
@@ -1790,8 +1736,8 @@ int main(int argc, char **argv) {
   nil = box(NIL, 0);                            /* set the constant nil (empty list) */
   tru = atom("#t");                             /* set the constant #t */
   env = pair(tru, tru, nil);                    /* create environment with symbolic constant #t */
-  for (i = 0; prim[i].s; ++i)                   /* expand environment with primitives */
-    env = pair(atom(prim[i].s), box(PRIM, i), env);
+  for (i = 0; i < sizeof(prim)/sizeof(prim[0]); ++i) /* expand environment with primitives */
+    env = pair(atom(prim[i].symbol), box(PRIM, i), env);
 
   /* Callback symbols */
   L draw_sym = atom("draw");
