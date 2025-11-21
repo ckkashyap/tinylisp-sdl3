@@ -660,12 +660,11 @@ L parse_i(InteractiveInput *in) {
 }
 
 /*----------------------------------------------------------------------------*\
- |      PRIMITIVES -- SEE THE TABLE WITH COMMENTS FOR DETAILS                 |
+ |      SDL STATE -- Window, renderer, colors, input, and state reporting     |
 \*----------------------------------------------------------------------------*/
 
 /* the file we are writing to, stdout by default */
 FILE *out;
-
 
 /* SDL3 global variables */
 SDL_Window *sdl_window = NULL;
@@ -680,45 +679,68 @@ float mouse_wheel_y = 0.0f;
 SDL_Keymod modifiers = SDL_KMOD_NONE;  // Allows key-down? to work
 
 
+// Reports "opengl" or "vulkan" or "software" typically.
+// https://wiki.libsdl.org/SDL3/SDL_GetRendererName
+// May be worth looking into offering a more proper driver/info
+// struct as quoted pairs?
 L f_sdl_get_renderer_name(L t, L *_) {
-    L name_atom = nil;
     if (! sdl_renderer) {
-        errorInSDLInit("Invalid renderer state.");
+        errorInSDLInit("No renderer. Did you initialize a window?");
+        return nil;
     }
     const char* name = SDL_GetRendererName(sdl_renderer);
-    if (name == NULL) {
-        name_atom = string("unknown render state");      
-    } else {
-        name_atom = string(name);
+    if(! name ) {
+        errorInSDLInit("Failed to get renderer name");
+        return nil;
     }
-    return name_atom;
+
+    return string(name);
 }
 
 
+// Currently only saves as a BMP file due to SDL 3.2 issues.
+// (https://wiki.libsdl.org/SDL3/SDL_SavePNG is version >= 3.4 only)
 L f_sdl_save_screenshot(L t, L *_) {
-    L result_code = nil;
-    L text_atom = car(t);
-    if (T(text_atom) != ATOM && T(text_atom) != STRG) return err((int) ERR_UNBOUND);
-    const char *path_str = A+ord(text_atom);
-
+    // Get early exits for lacking pre-reqs out of the way
+    L path_atom = nil;
     if (! sdl_renderer) {
-        errorInSDLInit("No renderer?");
+        errorInSDLInit("No renderer. Did you initialize a window?");
+        return nil;
     }
     SDL_Rect viewport;
     if(! SDL_GetRenderViewport(sdl_renderer, &viewport)) {
         errorInSDLInit("No viewport?");
+        return nil;
     }
+    path_atom = car(t);
+    if (T(path_atom) != ATOM && T(path_atom) != STRG)
+        return err((int) ERR_UNBOUND);
+
+    // Move on to expensive steps which fail or succeed
     SDL_Surface* screenshot = SDL_RenderReadPixels(sdl_renderer, NULL);
-    if (! screenshot ) {
+    if (! screenshot) {
         errorInSDLInit("Failed to get data");
+        return nil;
     }
-    int success = SDL_SaveBMP(screenshot, path_str);
-    SDL_DestroySurface(screenshot);
-    if (! success) {
-       return nil;
+
+    const char *path_str = A+ord(path_atom);
+    if(! SDL_SaveBMP(screenshot, path_str)) {
+        errorInSDLInit("Failed to save screenshot");
+        return nil;
+    }
+
+    // Free RAM even if write failed (disk was full, read-only, etc)
+    if(screenshot) {
+        SDL_DestroySurface(screenshot);
     }
     return tru;
 }
+
+
+/*----------------------------------------------------------------------------*\
+ |      PRIMITIVES -- SEE THE TABLE WITH COMMENTS FOR DETAILS                 |
+\*----------------------------------------------------------------------------*/
+
 
 /* construct a new list of evaluated expressions in list t, i.e. the arguments passed to a function or primitive */
 L eval(L, L);
